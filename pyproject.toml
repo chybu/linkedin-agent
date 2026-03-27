@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkedin-tool"
+version = "0.1.0"
+
+dependencies = [
+    "requests==2.33.0",
+    "beautifulsoup4==4.14.3",
+    "sqlalchemy",
+    "psycopg[binary]",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
