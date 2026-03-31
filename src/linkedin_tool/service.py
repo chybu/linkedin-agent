@@ -189,5 +189,5 @@ class ScrapeService:
         return total
     
     @staticmethod
-    def _get_jitter_time(min_second:int=2, max_second:int=10):
+    def _get_jitter_time(min_second:int=2, max_second:int=5):
         return uniform(min_second, max_second)

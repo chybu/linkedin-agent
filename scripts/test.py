@@ -4,7 +4,7 @@ from linkedin_tool.db.base import SessionLocal
 from linkedin_tool.db.repository import JobRepository
 from linkedin_tool.log import print_message
 
-start, end = 0, 1000
+start, end = 0, 50
 JOB_PER_START = 10
 
 valid_ct = 0
@@ -22,7 +22,7 @@ for i in range(start, end, step):
         if request_start>end: break
         
         request = JobSearchRequest(
-            geo_id=GeoId.WEST_VIRGINIA,
+            geo_id=GeoId.CALIFORNIA,
             start=request_start,
             sort_by=SortBy.MOST_RECENT
         )
