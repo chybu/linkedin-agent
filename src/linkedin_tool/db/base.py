@@ -1,12 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from linkedin_tool.setting import Setting
 
-DATABASE_URL = "postgresql+psycopg://user:password@localhost:5432/jobsdb"
-
+DATABASE_URL = Setting.DATABASE_URL.value
 
 class Base(DeclarativeBase):
     pass
-
 
 engine = create_engine(
     DATABASE_URL,

@@ -2,7 +2,7 @@ from sqlalchemy import BigInteger, Text, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 
-from ORM.db import Base
+from linkedin_tool.db.base import Base
 
 
 class JobModel(Base):

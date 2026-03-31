@@ -2,6 +2,7 @@ from linkedin_tool.service import ScrapeService
 from linkedin_tool.schema import JobSearchRequest, ScrapeResult, ScrapeRuntime
 from linkedin_tool.setting import Setting
 from collections import deque
+from time import sleep
 
 class RequestManager:
     def __init__(self, request_queue: deque[JobSearchRequest] | None = None, service: ScrapeService | None = None):
@@ -29,5 +30,9 @@ class RequestManager:
                 self.request_queue.popleft()
             else:
                 break
+            
+            # sleep between each job search
+            if self.request_queue:
+                sleep(self.service._get_jitter_time())
             
         return results

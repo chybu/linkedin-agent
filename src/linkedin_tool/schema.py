@@ -62,6 +62,5 @@ class JobSearchRequest:
     
 @dataclass
 class ScrapeRuntime:
-    total_requests: int = 0
     requests_since_sleep: int = 0
     requests_since_session_reset: int = 0

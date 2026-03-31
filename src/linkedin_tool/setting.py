@@ -8,6 +8,7 @@ class Setting(Enum):
     MAX_RETRIES = 3 # times
     JOB_SEARCH_WEIGHT = 1 # requests
     JOB_POST_WEIGHT = 1 # requests
-    JOB_SEARCH_REQUEST_LIMIT = 33 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
-    JOB_SEARCH_SESSION_LIMIT = 33 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
+    JOB_SEARCH_REQUEST_LIMIT = 330 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
+    JOB_SEARCH_SESSION_LIMIT = 330 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
     MAX_START_INDEX = 1000
+    DATABASE_URL = "postgresql+psycopg://user:password@localhost:5432/jobsdb"
