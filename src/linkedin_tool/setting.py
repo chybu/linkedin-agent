@@ -2,13 +2,16 @@ from enum import Enum
 
 class Setting(Enum):
     REQUEST_TIMEOUT = 30 # seconds
-    MIN_JOB_SEARCH_SLEEP = 120 # seconds
-    MAX_JOB_SEARCH_SLEEP = 300 # seconds
+    MIN_LONG_SLEEP = 120 # seconds
+    MAX_LONG_SLEEP = 300 # seconds
+    MIN_SHORT_SLEEP = 1 # seconds
+    MAX_SHORT_SLEEP = 4 # seconds
+
     FAIL_RETRY_PENALTY = 60 # seconds
     MAX_RETRIES = 3 # times
     JOB_SEARCH_WEIGHT = 1 # requests
     JOB_POST_WEIGHT = 1 # requests
-    JOB_SEARCH_REQUEST_LIMIT = 3300 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
-    JOB_SEARCH_SESSION_LIMIT = 3300 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
+    REQUEST_LIMIT = 3300 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
+    SESSION_LIMIT = 3300 # should be more than max_retries * (job_search_weight + 10 * job_post_weight)
     MAX_START_INDEX = 1000
     DATABASE_URL = "postgresql+psycopg://user:password@localhost:5432/jobsdb"

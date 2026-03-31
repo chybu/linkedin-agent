@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from linkedin_tool.setting import Setting
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
 
 class TimePostedRange(Enum):
     """f_TPR parameter values (in seconds)"""
@@ -64,3 +67,9 @@ class JobSearchRequest:
 class ScrapeRuntime:
     requests_since_sleep: int = 0
     requests_since_session_reset: int = 0
+
+@dataclass
+class Result(Generic[T]):    
+    result: ScrapeResult
+    content: T | None = None
+    error: str | None = None

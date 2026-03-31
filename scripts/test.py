@@ -42,7 +42,8 @@ with SessionLocal() as session:
         for request in batch:
             manager.add(request)
         
-        jobs = manager.run()
+        res = manager.run()
+        jobs = res.content
         for job in jobs:
             if repo.insert_if_not_exists(job):
                 new_job_ct+=1
