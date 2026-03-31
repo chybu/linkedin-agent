@@ -1,0 +1,46 @@
+--- STATUS CODE ---
+429
+
+--- HEADERS ---
+Date: Mon, 30 Mar 2026 11:39:22 GMT
+Content-Type: text/html
+Content-Length: 792
+Connection: keep-alive
+X-Li-Fabric: prod-ltx1
+Pragma: no-cache
+Expires: Thu, 01 Jan 1970 00:00:00 GMT
+Cache-Control: no-cache, no-store, no-transform
+X-Li-Pop: cf-prod-ltx1-x
+X-Li-Proto: http/1.1
+X-LI-UUID: AAZOPE1YmYa+o+yHosLOdA==
+CF-Cache-Status: DYNAMIC
+Set-Cookie: __cf_bm=6NXpk1q7GyNHAlQkUi5dZI7FEqQRhkf2lNmtcGXG7EE-1774870762-1.0.1.1-_VDluwmQZriwgAFOY796soMg7NbSjhPTHauLclJ3E4tMpxROA63m0UMf96Bq0_niQGYMnG9H_Fyed9z6AUoZQT2xaWs_Folr61T8wxs6Ewk; path=/; expires=Mon, 30-Mar-26 12:09:22 GMT; domain=.linkedin.com; HttpOnly; Secure; SameSite=None
+Strict-Transport-Security: max-age=31536000
+X-Content-Type-Options: nosniff
+Server: cloudflare
+CF-RAY: 9e46d55c1c0df84d-ORD
+alt-svc: h3=":443"; ma=86400
+
+--- BODY ---
+<html><head>
+<script type="text/javascript">
+    window.onload = function() {
+      var trk = "qf";
+      var cookies = document.cookie.split("; ");
+
+      if (window.location.protocol == "http:") {
+        // If "sl" cookie is set, redirect to https.
+        for (var i = 0; i < cookies.length; ++i) {
+          if ((cookies[i].indexOf("sl=") == 0) && (cookies[i].length > 3)) {
+            window.location.href = "https:" + window.location.href.substring(window.location.protocol.length);
+            return;
+          }
+        }
+      }
+
+      window.location.href = "https://www.linkedin.com/authwall?trk=" + trk +
+          "&original_referer=" + document.referrer.substr(0, 200) +
+          "&sessionRedirect=" + encodeURIComponent(window.location.href);
+    }
+</script>
+</head></html>

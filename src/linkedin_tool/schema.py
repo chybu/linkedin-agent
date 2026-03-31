@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from linkedin_tool.setting import Setting
 
 class TimePostedRange(Enum):
     """f_TPR parameter values (in seconds)"""
@@ -40,6 +41,11 @@ class GeoId(Enum):
     WEST_VIRGINIA = "106420769"
     VIETNAM = "104195383"
     CALIFORNIA = "102095887"
+    
+class ScrapeResult(Enum):
+    SUCCESSFUL = "successful"
+    FAILED = "failed"
+    RETRY = "retry"
 
 @dataclass(frozen=True, slots=True)
 class JobSearchRequest:
@@ -53,3 +59,9 @@ class JobSearchRequest:
     experience: ExperienceLevel | None = None
     job_type: JobType | None = None
     sort_by: SortBy| None = None
+    
+@dataclass
+class ScrapeRuntime:
+    total_requests: int = 0
+    requests_since_sleep: int = 0
+    requests_since_session_reset: int = 0

@@ -1,19 +1,41 @@
-import linkedin_tool.schema as schema
-import linkedin_tool.client as client
+from linkedin_tool.manager import RequestManager
+from linkedin_tool.schema import JobSearchRequest, GeoId, SortBy
+from time import time
 
-time_range = schema.TimePostedRange.PAST_24H
-work_place = schema.WorkplaceType.ON_SITE
-experience = schema.ExperienceLevel.INTERN
-job_type = schema.JobType.INTERNSHIP
-sort = schema.SortBy.MOST_RELEVANT
+start, end = 0, 11
+JOB_PER_START = 10
 
-keyword = "teacher"
-geoid = schema.GeoId.CALIFORNIA
+valid_ct = 0
+consecutive_zero_ct = 0
 
-request = schema.JobSearchRequest(
-    geo_id=geoid,
-    keywords=keyword,
-    sort_by=sort
-)
+manager = RequestManager()
+batches = []
+batch_size = 10
+step = JOB_PER_START*batch_size
 
-print(client.LinkedinClient._get_job_search_url(request))
+for i in range(start, end, step):
+    batch: list[JobSearchRequest] = []
+    j = i + step
+    for request_start in range(i, j, JOB_PER_START):
+        
+        if request_start>end: break
+        
+        request = JobSearchRequest(
+            geo_id=GeoId.WEST_VIRGINIA,
+            start=request_start,
+            sort_by=SortBy.MOST_RECENT
+        )
+        
+        batch.append(request)
+    
+    batches.append(batch)
+
+for batch in batches:
+    for request in batch:
+        manager.add(request)
+    
+    jobs = manager.run()
+    if len(jobs)==0:
+        consecutive_zero_ct+=1
+    else:
+        consecutive_zero_ct = 0
