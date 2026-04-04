@@ -1,13 +1,12 @@
 from linkedin_tool.manager import RequestManager
-from linkedin_tool.schema import JobSearchRequest, GeoId, SortBy
+from linkedin_tool.schema import JobSearchRequest, GeoId, SortBy, ScrapeResult
 from linkedin_tool.db.base import SessionLocal
 from linkedin_tool.db.repository import JobRepository
 from linkedin_tool.log import print_message
 
-start, end = 0, 50
+start, end = 0, 1000
 JOB_PER_START = 10
-
-valid_ct = 0
+max_no_new = 2
 
 manager = RequestManager()
 batches = []
@@ -22,7 +21,8 @@ for i in range(start, end, step):
         if request_start>end: break
         
         request = JobSearchRequest(
-            geo_id=GeoId.CALIFORNIA,
+            # keywords="data engineer intern",
+            geo_id=GeoId.WEST_VIRGINIA,
             start=request_start,
             sort_by=SortBy.MOST_RECENT
         )
@@ -32,6 +32,7 @@ for i in range(start, end, step):
     batches.append(batch)
 
 total_new_job_ct = 0
+no_new_ct = 0
 with SessionLocal() as session:
     repo = JobRepository(session)
     
@@ -42,13 +43,25 @@ with SessionLocal() as session:
         for request in batch:
             manager.add(request)
         
-        res = manager.run()
+        res = manager.get_new_from_db(repo)
+        
+        if res.result!=ScrapeResult.SUCCESSFUL:
+            print_message("Stop early", f"failed because {res.error}")
+            break
+        
         jobs = res.content
         for job in jobs:
             if repo.insert_if_not_exists(job):
                 new_job_ct+=1
                 
         print_message("NEW JOB", f"Find {new_job_ct} new jobs")
+        if new_job_ct==0:
+            no_new_ct+=1
+        else:
+            no_new_ct=0
+        if no_new_ct==max_no_new:
+            print_message("Stop Early")
+            break
         
         total_new_job_ct+=new_job_ct
 
