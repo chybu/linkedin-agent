@@ -111,7 +111,6 @@ Columns:
 - `company_raw text`
 - `location_raw text`
 - `source_url text`
-- `card_payload jsonb`
 - `scraped_at timestamptz not null default now()`
 
 Example:
@@ -125,11 +124,6 @@ Example:
   "company_raw": "Acme Analytics",
   "location_raw": "New York, NY",
   "source_url": "https://www.linkedin.com/jobs/view/data-engineer-4213370011?position=1&pageNum=0",
-  "card_payload": {
-    "title": "Data Engineer",
-    "company": "Acme Analytics",
-    "location": "New York, NY"
-  },
   "scraped_at": "2026-04-22T08:15:21Z"
 }
 ```
@@ -155,8 +149,6 @@ Columns:
 - `job_function_raw text`
 - `industry_raw text`
 - `description_raw text`
-- `criteria_payload jsonb`
-- `raw_payload jsonb`
 - `scraped_at timestamptz not null default now()`
 
 Example:
@@ -176,17 +168,7 @@ Example:
   "employment_type_raw": "Full-time",
   "job_function_raw": "Engineering",
   "industry_raw": "Technology, Information and Internet",
-  "description_raw": "We are looking for a Data Engineer with Python, SQL, Airflow, and dbt experience...",
-  "criteria_payload": {
-    "Seniority level": "Associate",
-    "Employment type": "Full-time",
-    "Job function": "Engineering",
-    "Industries": "Technology, Information and Internet"
-  },
-  "raw_payload": {
-    "applicants": "47 applicants",
-    "sections": "Full raw parsed posting text"
-  },
+  "description_raw": "We are looking for a Data Engineer with Python, SQL, Airflow, and dbt experience..",
   "scraped_at": "2026-04-22T08:16:04Z"
 }
 ```
@@ -425,7 +407,7 @@ Purpose:
 
 Columns:
 - `job_id bigint primary key`
-- `latest_job_posting_raw_id bigint not null references bronze.job_postings_raw(job_posting_raw_id)`
+- `job_posting_raw_id bigint not null references bronze.job_postings_raw(job_posting_raw_id)`
 - `company_id bigint references silver.companies(company_id)`
 - `location_id bigint references silver.locations(location_id)`
 - `title text not null`
@@ -441,18 +423,14 @@ Columns:
 - `applicant_count integer`
 - `description text`
 - `source_url text`
-- `is_active boolean not null default true`
-- `first_seen_at timestamptz`
-- `last_seen_at timestamptz`
 - `created_at timestamptz not null default now()`
-- `updated_at timestamptz not null default now()`
 
 Example:
 
 ```json
 {
   "job_id": 4213370011,
-  "latest_job_posting_raw_id": 5001,
+  "job_posting_raw_id": 5001,
   "company_id": 201,
   "location_id": 301,
   "title": "Data Engineer",
@@ -468,11 +446,7 @@ Example:
   "applicant_count": 47,
   "description": "We are looking for a Data Engineer with Python, SQL, Airflow, and dbt experience...",
   "source_url": "https://www.linkedin.com/jobs/view/data-engineer-4213370011?position=1&pageNum=0",
-  "is_active": true,
-  "first_seen_at": "2026-04-22T08:16:04Z",
-  "last_seen_at": "2026-04-22T08:16:04Z",
   "created_at": "2026-04-22T08:20:45Z",
-  "updated_at": "2026-04-22T08:20:45Z"
 }
 ```
 

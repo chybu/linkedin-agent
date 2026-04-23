@@ -41,56 +41,6 @@ class ScrapeService:
                 break
 
         return job_post_res
-
-    def get_job(self, request:JobSearchRequest, runtime:ScrapeRuntime):
-
-        content = []
-        
-        # get job search data
-        job_search_res = self.get_job_search(request, runtime)
-        
-        # early return when cannot get the job search page
-        if job_search_res.result != ScrapeResult.SUCCESSFUL:
-            return job_search_res
-        
-        # sleep between job search and job post
-        sleep(self._get_jitter_time())
-        
-        # get job posting. Converge when after all retries, the request is still getting blocked => next job card will also be blocked => converge early when max retry is reached
-        for job_card_i, job_card in enumerate(job_search_res.content):
-            job_id = job_card["job_id"]
-        
-            job_post_res = self.get_job_post(job_id, runtime)
-                
-            if job_post_res.result == ScrapeResult.SUCCESSFUL:
-                job_detail = job_post_res.content
-                content.append({
-                    "job_id": job_id,
-                    "title": job_card["title"],
-                    "company": job_card["company"],
-                    "location": job_card["location"],
-                    "posted": job_detail["posted"] if "posted" in job_detail else None,
-                    "seniority_level": job_detail["criteria"]["Seniority level"] if "Seniority level" in job_detail["criteria"] else None,
-                    "employment_type": job_detail["criteria"]["Employment type"] if "Employment type" in job_detail["criteria"] else None,
-                    "job_function": job_detail["criteria"]["Job function"] if "Job function" in job_detail["criteria"] else None,
-                    "industry": job_detail["criteria"]["Industries"] if "Industries" in job_detail["criteria"] else None,
-                    "applicants": job_detail["applicants"] if "applicants" in job_detail else None,
-                    "description": job_detail["sections"] if "sections" in job_detail else None,
-                    "source_url": job_card["source_url"]
-                })                                
-            else:
-                # get_job_post may return Failed or Retry Error. However, with the job id get from the job search earlier, the job id should be valid. So, when it fails to get the job post with a valid id, then it's because it hits a hard block or a network problem occured => getting later job id would likely fail => stop early
-                return job_post_res
-            
-            # sleep between job posts unless it is the last job post
-            if job_card_i < len(job_search_res.content)-1:
-                sleep(self._get_jitter_time())
-         
-        
-        return Result(
-            result=ScrapeResult.SUCCESSFUL,
-            content=content
-        )
                      
     def _get_job_search(self, request:JobSearchRequest, runtime:ScrapeRuntime):
         

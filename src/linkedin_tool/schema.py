@@ -49,6 +49,7 @@ class ScrapeResult(Enum):
     SUCCESSFUL = "successful"
     FAILED = "failed"
     RETRY = "retry"
+    RUNNING = "running"
 
 @dataclass(frozen=True, slots=True)
 class JobSearchRequest:
