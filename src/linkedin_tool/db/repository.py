@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from datetime import datetime, UTC
 
 from linkedin_tool.schema import JobSearchRequest, ScrapeResult
 from linkedin_tool.db.model import ScrapeRunModel, JobSearchCardRawModel, JobPostingRawModel
@@ -9,6 +10,7 @@ class BronzeRepository:
         self.session = session
 
     def create_scrape_run(self, request: JobSearchRequest) -> ScrapeRunModel:
+        now_utc = datetime.now(UTC)
         scrape_run = ScrapeRunModel(
             keywords=request.keywords or None,
             geo_id=request.geo_id.value if request.geo_id else None,
@@ -19,6 +21,7 @@ class BronzeRepository:
             job_type=request.job_type.value if request.job_type else None,
             sort_by=request.sort_by.value if request.sort_by else None,
             status=ScrapeResult.RUNNING.value,
+            started_at=now_utc,
         )
         self.session.add(scrape_run)
         self.session.commit()
@@ -90,6 +93,7 @@ class BronzeRepository:
         scrape_run.jobs_seen_count = jobs_seen_count
         scrape_run.jobs_inserted_count = jobs_inserted_count
         scrape_run.error_message = error_message
+        scrape_run.finished_at = datetime.now(UTC)
 
         self.session.commit()
         
