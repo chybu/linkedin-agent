@@ -410,17 +410,12 @@ Columns:
 - `job_posting_raw_id bigint not null references bronze.job_postings_raw(job_posting_raw_id)`
 - `company_id bigint references silver.companies(company_id)`
 - `location_id bigint references silver.locations(location_id)`
-- `title text not null`
-- `role_family text not null`
-- `company_name text`
-- `location_name text`
+- `title_normalized text not null`
 - `posted_at date`
-- `seniority_level_raw text`
 - `seniority_level_normalized text`
 - `employment_type text`
 - `job_function text`
 - `industry text`
-- `applicant_count integer`
 - `description text`
 - `source_url text`
 - `created_at timestamptz not null default now()`
@@ -433,17 +428,12 @@ Example:
   "job_posting_raw_id": 5001,
   "company_id": 201,
   "location_id": 301,
-  "title": "Data Engineer",
-  "role_family": "data engineer",
-  "company_name": "Acme Analytics",
-  "location_name": "New York, NY",
+  "title_normalized": "data engineer",
   "posted_at": "2026-04-19",
-  "seniority_level_raw": "Associate",
   "seniority_level_normalized": "mid",
   "employment_type": "Full-time",
   "job_function": "Engineering",
   "industry": "Technology, Information and Internet",
-  "applicant_count": 47,
   "description": "We are looking for a Data Engineer with Python, SQL, Airflow, and dbt experience...",
   "source_url": "https://www.linkedin.com/jobs/view/data-engineer-4213370011?position=1&pageNum=0",
   "created_at": "2026-04-22T08:20:45Z",

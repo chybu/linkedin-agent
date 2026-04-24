@@ -12,6 +12,8 @@ dependencies = [
     "sqlalchemy",
     "psycopg[binary]",
     "lxml==6.0.2",
+    "dbt-core=1.11.8",
+    "dbt-postgres=1.10.0",
 ]
 
 [tool.setuptools.packages.find]

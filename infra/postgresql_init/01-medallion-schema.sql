@@ -51,44 +51,44 @@ CREATE TABLE IF NOT EXISTS bronze.job_postings_raw (
     scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS silver.companies (
-    company_id BIGSERIAL PRIMARY KEY,
-    company_name TEXT NOT NULL,
-    company_name_normalized TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- CREATE TABLE IF NOT EXISTS silver.companies (
+--     company_id BIGSERIAL PRIMARY KEY,
+--     company_name TEXT NOT NULL,
+--     company_name_normalized TEXT NOT NULL,
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
 
-CREATE TABLE IF NOT EXISTS silver.locations (
-    location_id BIGSERIAL PRIMARY KEY,
-    location_raw TEXT,
-    location_normalized TEXT NOT NULL,
-    city TEXT,
-    state_region TEXT,
-    country TEXT,
-    is_remote BOOLEAN,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- CREATE TABLE IF NOT EXISTS silver.locations (
+--     location_id BIGSERIAL PRIMARY KEY,
+--     location_raw TEXT,
+--     location_normalized TEXT NOT NULL,
+--     city TEXT,
+--     state_region TEXT,
+--     country TEXT,
+--     is_remote BOOLEAN,
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
 
-CREATE TABLE IF NOT EXISTS silver.job_postings (
-    job_id BIGINT PRIMARY KEY,
-    job_posting_raw_id BIGINT NOT NULL REFERENCES bronze.job_postings_raw(job_posting_raw_id),
-    company_id BIGINT REFERENCES silver.companies(company_id),
-    location_id BIGINT REFERENCES silver.locations(location_id),
-    title TEXT NOT NULL,
-    role_family TEXT NOT NULL,
-    company_name TEXT,
-    location_name TEXT,
-    posted_at DATE,
-    seniority_level_raw TEXT,
-    seniority_level_normalized TEXT,
-    employment_type TEXT,
-    job_function TEXT,
-    industry TEXT,
-    applicant_count INTEGER,
-    description TEXT,
-    source_url TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- CREATE TABLE IF NOT EXISTS silver.job_postings (
+--     job_id BIGINT PRIMARY KEY,
+--     job_posting_raw_id BIGINT NOT NULL REFERENCES bronze.job_postings_raw(job_posting_raw_id),
+--     company_id BIGINT REFERENCES silver.companies(company_id),
+--     location_id BIGINT REFERENCES silver.locations(location_id),
+--     title TEXT NOT NULL,
+--     role_family TEXT NOT NULL,
+--     company_name TEXT,
+--     location_name TEXT,
+--     posted_at DATE,
+--     seniority_level_raw TEXT,
+--     seniority_level_normalized TEXT,
+--     employment_type TEXT,
+--     job_function TEXT,
+--     industry TEXT,
+--     applicant_count INTEGER,
+--     description TEXT,
+--     source_url TEXT,
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
 
 CREATE INDEX IF NOT EXISTS idx_bronze_job_search_cards_run_id
     ON bronze.job_search_cards_raw(scrape_run_id);
@@ -99,8 +99,8 @@ CREATE INDEX IF NOT EXISTS idx_bronze_job_postings_run_id
 CREATE INDEX IF NOT EXISTS idx_bronze_job_postings_job_id
     ON bronze.job_postings_raw(job_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_silver_companies_name_normalized
-    ON silver.companies(company_name_normalized);
+-- CREATE UNIQUE INDEX IF NOT EXISTS uq_silver_companies_name_normalized
+--     ON silver.companies(company_name_normalized);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_silver_locations_normalized
-    ON silver.locations(location_normalized);
+-- CREATE UNIQUE INDEX IF NOT EXISTS uq_silver_locations_normalized
+--     ON silver.locations(location_normalized);
