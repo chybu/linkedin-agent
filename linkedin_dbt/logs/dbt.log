@@ -1,0 +1,55 @@
+[0m12:55:39.699417 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x00000287D964E510>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x00000287D632FB10>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x00000287DA31F390>]}
+
+
+============================== 12:55:39.705281 | ff9b5938-c6d4-420d-86af-bb4370c70c3b ==============================
+[0m12:55:39.705281 [info ] [MainThread]: Running with dbt=1.11.8
+[0m12:55:39.706185 [debug] [MainThread]: running dbt with arguments {'static_parser': 'True', 'no_print': 'None', 'version_check': 'True', 'target_path': 'None', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'printer_width': '80', 'write_json': 'True', 'introspect': 'True', 'log_cache_events': 'False', 'empty': 'None', 'cache_selected_only': 'False', 'fail_fast': 'False', 'debug': 'False', 'log_format': 'default', 'partial_parse': 'True', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'warn_error': 'None', 'profiles_dir': 'C:\\Users\\trung\\.dbt', 'use_colors': 'True', 'indirect_selection': 'eager', 'invocation_command': 'dbt debug', 'use_experimental_parser': 'False', 'log_path': 'C:\\Users\\trung\\Documents\\linkedin llm\\linkedin_dbt\\logs'}
+[0m12:55:39.738371 [info ] [MainThread]: dbt version: 1.11.8
+[0m12:55:39.739167 [info ] [MainThread]: python version: 3.13.12
+[0m12:55:39.740044 [info ] [MainThread]: python path: D:\miniconda\envs\linkedin\python.exe
+[0m12:55:39.740757 [info ] [MainThread]: os info: Windows-10-10.0.19045-SP0
+[0m12:55:39.820756 [info ] [MainThread]: Using profiles dir at C:\Users\trung\.dbt
+[0m12:55:39.821539 [info ] [MainThread]: Using profiles.yml file at C:\Users\trung\.dbt\profiles.yml
+[0m12:55:39.822382 [info ] [MainThread]: Using dbt_project.yml file at C:\Users\trung\Documents\linkedin llm\linkedin_dbt\dbt_project.yml
+[0m12:55:39.824224 [info ] [MainThread]: adapter type: postgres
+[0m12:55:39.824989 [info ] [MainThread]: adapter version: 1.10.0
+[0m12:55:39.997390 [info ] [MainThread]: Configuration:
+[0m12:55:39.998092 [info ] [MainThread]:   profiles.yml file [[32mOK found and valid[0m]
+[0m12:55:39.998927 [info ] [MainThread]:   dbt_project.yml file [[32mOK found and valid[0m]
+[0m12:55:39.999705 [info ] [MainThread]: Required dependencies:
+[0m12:55:40.000406 [debug] [MainThread]: Executing "git --help"
+[0m12:55:40.050397 [debug] [MainThread]: STDOUT: "b"usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]\n           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]\n           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--no-lazy-fetch]\n           [--no-optional-locks] [--no-advice] [--bare] [--git-dir=<path>]\n           [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>]\n           <command> [<args>]\n\nThese are common Git commands used in various situations:\n\nstart a working area (see also: git help tutorial)\n   clone      Clone a repository into a new directory\n   init       Create an empty Git repository or reinitialize an existing one\n\nwork on the current change (see also: git help everyday)\n   add        Add file contents to the index\n   mv         Move or rename a file, a directory, or a symlink\n   restore    Restore working tree files\n   rm         Remove files from the working tree and from the index\n\nexamine the history and state (see also: git help revisions)\n   bisect     Use binary search to find the commit that introduced a bug\n   diff       Show changes between commits, commit and working tree, etc\n   grep       Print lines matching a pattern\n   log        Show commit logs\n   show       Show various types of objects\n   status     Show the working tree status\n\ngrow, mark and tweak your common history\n   backfill   Download missing objects in a partial clone\n   branch     List, create, or delete branches\n   commit     Record changes to the repository\n   merge      Join two or more development histories together\n   rebase     Reapply commits on top of another base tip\n   reset      Reset current HEAD to the specified state\n   switch     Switch branches\n   tag        Create, list, delete or verify tags\n\ncollaborate (see also: git help workflows)\n   fetch      Download objects and refs from another repository\n   pull       Fetch from and integrate with another repository or a local branch\n   push       Update remote refs along with associated objects\n\n'git help -a' and 'git help -g' list available subcommands and some\nconcept guides. See 'git help <command>' or 'git help <concept>'\nto read about a specific subcommand or concept.\nSee 'git help git' for an overview of the system.\n""
+[0m12:55:40.051128 [debug] [MainThread]: STDERR: "b''"
+[0m12:55:40.051776 [info ] [MainThread]:  - git [[32mOK found[0m]
+
+[0m12:55:40.052987 [info ] [MainThread]: Connection:
+[0m12:55:40.053683 [info ] [MainThread]:   host: localhost
+[0m12:55:40.054418 [info ] [MainThread]:   port: 5432
+[0m12:55:40.055206 [info ] [MainThread]:   user: user
+[0m12:55:40.055800 [info ] [MainThread]:   database: jobsdb
+[0m12:55:40.056450 [info ] [MainThread]:   schema: silver
+[0m12:55:40.057062 [info ] [MainThread]:   connect_timeout: 10
+[0m12:55:40.057697 [info ] [MainThread]:   role: None
+[0m12:55:40.058576 [info ] [MainThread]:   search_path: None
+[0m12:55:40.059453 [info ] [MainThread]:   keepalives_idle: 0
+[0m12:55:40.060162 [info ] [MainThread]:   sslmode: None
+[0m12:55:40.060797 [info ] [MainThread]:   sslcert: None
+[0m12:55:40.061411 [info ] [MainThread]:   sslkey: None
+[0m12:55:40.062125 [info ] [MainThread]:   sslrootcert: None
+[0m12:55:40.062844 [info ] [MainThread]:   application_name: dbt
+[0m12:55:40.063565 [info ] [MainThread]:   retries: 1
+[0m12:55:40.064736 [info ] [MainThread]: Registered adapter: postgres=1.10.0
+[0m12:55:40.382941 [debug] [MainThread]: Acquiring new postgres connection 'debug'
+[0m12:55:40.460358 [debug] [MainThread]: Using postgres connection "debug"
+[0m12:55:40.460834 [debug] [MainThread]: On debug: select 1 as id
+[0m12:55:40.461222 [debug] [MainThread]: Opening a new connection, currently in state init
+[0m12:55:40.487958 [debug] [MainThread]: SQL status: SELECT 1 in 0.027 seconds
+[0m12:55:40.489254 [debug] [MainThread]: On debug: Close
+[0m12:55:40.489882 [info ] [MainThread]:   Connection test: [[32mOK connection ok[0m]
+
+[0m12:55:40.490859 [info ] [MainThread]: [32mAll checks passed![0m
+[0m12:55:40.492331 [debug] [MainThread]: Command `dbt debug` succeeded at 12:55:40.492129 after 0.95 seconds
+[0m12:55:40.492972 [debug] [MainThread]: Connection 'debug' was properly closed.
+[0m12:55:40.493455 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x00000287DBC57A80>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x00000287DBC85490>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x00000287DBA6F460>]}
+[0m12:55:40.494045 [debug] [MainThread]: Flushing usage events
+[0m12:55:40.759017 [debug] [MainThread]: An error was encountered while trying to flush usage events

@@ -113,5 +113,8 @@ class RequestManager:
     def _get_job_ids(job_search_list: list[dict]):
         ids = []
         for job_search in job_search_list:
-            ids.append(int(job_search["job_id"]))
+            try:
+                ids.append(int(job_search["job_id"]))
+            except Exception:
+                print(job_search)
         return ids

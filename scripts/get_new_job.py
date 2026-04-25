@@ -4,7 +4,7 @@ from linkedin_tool.db.base import SessionLocal
 from linkedin_tool.db.repository import JobRepository
 from linkedin_tool.log import print_message
 
-start, end = 0, 1000
+start, end = 500, 1000
 JOB_PER_START = 10
 max_no_new = 2
 

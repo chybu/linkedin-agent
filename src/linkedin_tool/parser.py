@@ -43,6 +43,13 @@ class LinkedinParser:
 
         # fallback
         match = re.search(r"-(\d+)", url)
+        
+        try:
+            int(match.group(1))
+        except Exception:
+            print(f"Cannot parse {match.group(1)} from url")
+            return None
+        
         return match.group(1) if match else None
     
     @staticmethod
@@ -133,7 +140,7 @@ class LinkedinParser:
                 job_id = None
             
             # skip empty/non-job li blocks
-            if not title and not company and not url:
+            if not title or not company or not url:
                 continue
 
             jobs.append(
