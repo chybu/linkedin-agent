@@ -51,6 +51,30 @@ CREATE TABLE IF NOT EXISTS bronze.job_postings_raw (
     scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS bronze.title_normalization_map (
+    key_normalized TEXT PRIMARY KEY,
+    value_normalized TEXT NOT NULL,
+    method TEXT NOT NULL CHECK (method IN ('llm', 'fuzzy')),
+    ref_id BIGINT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS bronze.location_normalization_map (
+    key_normalized TEXT PRIMARY KEY,
+    value_normalized TEXT NOT NULL,
+    method TEXT NOT NULL CHECK (method IN ('llm', 'fuzzy')),
+    ref_id BIGINT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS bronze.seniority_normalization_map (
+    key_normalized TEXT PRIMARY KEY,
+    value_normalized TEXT NOT NULL,
+    method TEXT NOT NULL CHECK (method IN ('llm', 'fuzzy')),
+    ref_id BIGINT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- CREATE TABLE IF NOT EXISTS silver.companies (
 --     company_id BIGSERIAL PRIMARY KEY,
 --     company_name TEXT NOT NULL,
@@ -89,18 +113,3 @@ CREATE TABLE IF NOT EXISTS bronze.job_postings_raw (
 --     source_url TEXT,
 --     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 -- );
-
-CREATE INDEX IF NOT EXISTS idx_bronze_job_search_cards_run_id
-    ON bronze.job_search_cards_raw(scrape_run_id);
-
-CREATE INDEX IF NOT EXISTS idx_bronze_job_postings_run_id
-    ON bronze.job_postings_raw(scrape_run_id);
-
-CREATE INDEX IF NOT EXISTS idx_bronze_job_postings_job_id
-    ON bronze.job_postings_raw(job_id);
-
--- CREATE UNIQUE INDEX IF NOT EXISTS uq_silver_companies_name_normalized
---     ON silver.companies(company_name_normalized);
-
--- CREATE UNIQUE INDEX IF NOT EXISTS uq_silver_locations_normalized
---     ON silver.locations(location_normalized);
