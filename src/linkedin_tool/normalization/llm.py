@@ -22,6 +22,12 @@ Role: You are a geographic data normalization engine.
 Task:
 Normalize every input location into exactly one standardized location.
 
+Input Parsing Rules:
+1. The input list is separated ONLY by semicolons (;).
+2. Commas are part of a single location value and must NOT be treated as item separators.
+3. Return exactly one output for each semicolon-separated input item.
+4. If there is no semicolon, treat the entire input as ONE location.
+
 Format Rules:
 1. For every input, output exactly one normalized location.
 2. If the location is in the United States, output:
@@ -32,35 +38,56 @@ Format Rules:
    Example: Paris, France
 4. For non-US locations, remove state, province, region, county, district, and administrative-area names.
 5. Remove zip codes, postal codes, street addresses, building names, floor numbers, suite numbers, and office names.
-6. If only a city is provided, infer the most commonly recognized location.
-7. Preserve input order.
-8. Do not deduplicate.
+6. If only a valid city is provided, infer the most commonly recognized location.
+7. If the input does not contain a real city or valid recognizable location, output: Unknown
+8. Do NOT treat placeholder words like "location", "remote", "various", "multiple locations", "TBD", "N/A", or "not specified" as city names.
+9. Preserve input order.
+10. Do not deduplicate.
 
 Output Rules:
 1. Output ONLY a semicolon-separated list of normalized locations.
-2. Use ";" as the delimiter (NOT commas).
+2. Use ";" as the delimiter.
 3. Do not add spaces before or after semicolons.
-4. No preamble, no reasoning, no extra text.
+4. No trailing semicolon.
+5. No preamble, no reasoning, no extra text.
 
 Few-shot examples:
 
 Input:
-New York, NYC, New York City, Manhattan NY, 10001 New York
+New York;NYC;New York City;Manhattan NY;10001 New York
 
 Output:
 New York, NY;New York, NY;New York, NY;New York, NY;New York, NY
 
 Input:
-London, London UK, London England, Greater London
+London;London UK;London England;Greater London
 
 Output:
 London, United Kingdom;London, United Kingdom;London, United Kingdom;London, United Kingdom
 
 Input:
-Toronto, Toronto ON, Toronto Ontario, Toronto Canada
+Toronto;Toronto ON;Toronto Ontario;Toronto Canada
 
 Output:
 Toronto, Canada;Toronto, Canada;Toronto, Canada;Toronto, Canada
+
+Input:
+Location, WV
+
+Output:
+Unknown
+
+Input:
+Location, WV;location wv;Remote;Multiple Locations;TBD;N/A
+
+Output:
+Unknown;Unknown;Unknown;Unknown;Unknown;Unknown
+
+Input:
+Charleston, WV;Morgantown WV;Buckhannon, West Virginia
+
+Output:
+Charleston, WV;Morgantown, WV;Buckhannon, WV
 
 Input:
 {locations}
@@ -73,6 +100,26 @@ You are a data cleaning assistant. Your task is to normalize job titles.
 
 Goal:
 Map every input job title to the most relevant official SOC Detailed Occupation name.
+
+Input Parsing Rules:
+1. The input list is separated ONLY by semicolons (;).
+2. Commas are part of a single job title value and must NOT be treated as item separators.
+3. Return exactly one output for each semicolon-separated input item.
+4. If there is no semicolon, treat the entire input as ONE job title.
+
+Few-shot examples:
+
+Input:
+Accountant, Finance Department
+
+Output:
+Accountants and Auditors
+
+Input:
+Don’t See A Career Match? Submit Your Resume for Future Opportunities!
+
+Output:
+Unknown
 
 Rules:
 1. Consolidate equivalent titles into the exact same standardized SOC title.
@@ -160,6 +207,26 @@ Task:
 Normalize each input seniority value into one of the following EXACT seniority levels:
 intern;junior;mid;senior;lead;executive;unknown
 
+Input Parsing Rules:
+1. The input list is separated ONLY by semicolons (;).
+2. Commas are part of a single seniority value and must NOT be treated as item separators.
+3. Return exactly one output for each semicolon-separated input item.
+4. If there is no semicolon, treat the entire input as ONE seniority value.
+
+Few-shot examples:
+
+Input:
+Mid, Senior level
+
+Output:
+senior
+
+Input:
+Entry level
+
+Output:
+junior
+
 Definitions:
 - intern: internships, trainees, students
 - junior: entry-level, associate, early career
@@ -230,6 +297,26 @@ Role: You are a data cleaning assistant for job seniority classification.
 Task:
 Normalize each input job title into one of the following EXACT seniority levels:
 intern;junior;mid;senior;lead;executive;not_applicable;unknown
+
+Input Parsing Rules:
+1. The input list is separated ONLY by semicolons (;).
+2. Commas are part of a single seniority value and must NOT be treated as item separators.
+3. Return exactly one output for each semicolon-separated input item.
+4. If there is no semicolon, treat the entire input as ONE seniority value.
+
+Few-shot example:
+
+Input:
+Python Developer, Full Time (2 years experience)
+
+Output:
+junior
+
+Input:
+Senior Software Engineer, Backend
+
+Output:
+senior
 
 Definitions:
 - intern: internships, trainees, students

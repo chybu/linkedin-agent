@@ -186,7 +186,7 @@ def run_normalization_pipeline(
             unresolved[d] = unresolved[d] - resolved_keys
             resolved_by_method["fuzzy"] += len(fuzzy_resolved)
     print_message("Normalization", "finished stage 2: fuzzy matching")
-
+    
     # Stage 3: batch llm
     print_message("Normalization", "starting stage 3: llm normalization")
     for domain_i, d in enumerate(NormalizationConfig.DOMAINS.value):
