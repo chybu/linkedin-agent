@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from linkedin_tool.setting import Setting
+from linkedin_tool.setting import NormalizationConfig
 from typing import Generic, TypeVar
 
 T = TypeVar("T")
@@ -74,3 +74,25 @@ class Result(Generic[T]):
     result: ScrapeResult
     content: T | None = None
     error: str | None = None
+    
+@dataclass
+class NormalizationSummary:
+    total_candidates: int = 0
+    ready_count: int = 0
+    unresolved_by_domain: dict[str, int] = field(default_factory=dict)
+    resolved_by_method: dict[str, int] = field(
+        default_factory=lambda: {
+            method:0 for method in NormalizationConfig.METHODS.value
+        }
+    )
+
+@dataclass
+class NormalizationResult:
+    ready_job_posting_raw_ids: list[int] = field(default_factory=list)
+    summary: NormalizationSummary = field(default_factory=NormalizationSummary)
+    
+@dataclass
+class FuzzyResult:
+    raw_key:str
+    normalized_val:str
+    ref_key:str = None

@@ -23,7 +23,7 @@ class NormalizationRepository:
         if not scrape_run_ids:
             return []
         
-        silver_exists = self._silver_job_postings_exists()
+        silver_exists = self._silver_staging_job_postings_exists()
         
         if silver_exists:
             stmt = (
@@ -64,48 +64,107 @@ class NormalizationRepository:
         
         return [dict(row) for row in rows]
     
-    def fetch_map_keys(self, domain: str) -> set[str]:
+    def fetch_simple_map_key_to_value(self, domain: str) -> dict[str, str]:
+        """
+        For title/location:
+            key_normalized -> value_normalized
+        """
+        
         table = MAP_TABLE_BY_DOMAIN[domain]
-        rows = self.session.execute(text(f"select key_normalized from {table}")).scalars().all()
-        return {r for r in rows if r}
-    
-    def fetch_map_values(self, domain: str) -> set[str]:
-        table = MAP_TABLE_BY_DOMAIN[domain]
-        rows = self.session.execute(text(f"select value_normalized from {table}")).scalars().all()
-        return {r for r in rows if r}
+        rows = self.session.execute(
+            text(f"select key_normalized, value_normalized from {table}")
+        ).all()
+        return {k: v for k, v in rows}
+
+    def fetch_seniority_map_key_to_value(self) -> dict[tuple[bool, str], str]:
+        """
+        For seniority:
+            (use_title_key, source_key) -> value_normalized
+        """
+        table = MAP_TABLE_BY_DOMAIN["seniority"]
+        rows = self.session.execute(
+            text(
+                f"""
+                select
+                    use_title_key,
+                    source_key,
+                    value_normalized
+                from {table}
+                """
+            )
+        ).all()
+
+        return {
+            (bool(use_title_key), source_key): value
+            for use_title_key, source_key, value in rows
+        }
+
+    def fetch_map_key_to_value(self, domain: str):
+        if domain == "seniority":
+            return self.fetch_seniority_map_key_to_value()
+        else: 
+            return self.fetch_simple_map_key_to_value(domain)
     
     def upsert_map_rows(self, domain: str, rows: list[dict]) -> None:
         """
-        update existing key or insert new key
+        update existing key or insert new key to normalization table.
+        insert content includes: key_normalized, value_normalized, method, ref_key
         """
         
         if not rows:
             return
 
         table = MAP_TABLE_BY_DOMAIN[domain]
-        stmt = text(
-            f"""
-            insert into {table} (
-                key_normalized,
-                value_normalized,
-                method,
-                ref_id,
-                updated_at
+        if domain == "seniority":
+            stmt = text(
+                f"""
+                insert into {table} (
+                    use_title_key,
+                    source_key,
+                    value_normalized,
+                    method,
+                    ref_key,
+                    updated_at
+                )
+                values (
+                    :use_title_key,
+                    :source_key,
+                    :value_normalized,
+                    :method,
+                    :ref_key,
+                    now()
+                )
+                on conflict (use_title_key, source_key) do update set
+                    value_normalized = excluded.value_normalized,
+                    method = excluded.method,
+                    ref_key = excluded.ref_key,
+                    updated_at = now()
+                """
             )
-            values (
-                :key_normalized,
-                :value_normalized,
-                :method,
-                :ref_id,
-                now()
+        else:
+            stmt = text(
+                f"""
+                insert into {table} (
+                    key_normalized,
+                    value_normalized,
+                    method,
+                    ref_key,
+                    updated_at
+                )
+                values (
+                    :key_normalized,
+                    :value_normalized,
+                    :method,
+                    :ref_key,
+                    now()
+                )
+                on conflict (key_normalized) do update set
+                    value_normalized = excluded.value_normalized,
+                    method = excluded.method,
+                    ref_key = excluded.ref_key,
+                    updated_at = now()
+                """
             )
-            on conflict (key_normalized) do update set
-                value_normalized = excluded.value_normalized,
-                method = excluded.method,
-                ref_id = excluded.ref_id,
-                updated_at = now()
-            """
-        )
 
         self.session.execute(stmt, rows)
         self.session.commit()

@@ -1,5 +1,5 @@
 from difflib import SequenceMatcher
-
+from linkedin_tool.schema import FuzzyResult
 
 def _token_sort(s: str) -> str:
     return " ".join(sorted(s.split()))
@@ -21,43 +21,79 @@ def _best_match(query: str, candidates: set[str]) -> tuple[str | None, float]:
 
     return best_val, best_score
 
-
-def resolve_with_fuzzy(
+def resolve_with_fuzzy_simple(
     unresolved_keys: set[str],
-    candidate_values: set[str],          # from value_normalized
-    known_key_to_value: dict[str, str],  # key_normalized -> value_normalized
-    threshold_value: float,              # e.g. 0.90
-    threshold_key: float,                # e.g. 0.94 (usually stricter)
-) -> dict[str, str]:
-    """
-    Returns: new_key -> resolved normalized value
-    Stage 1: match new key to candidate normalized values.
-    Stage 2: if stage 1 fails, match new key to known raw keys, then inherit that key's normalized value.
-    """
+    known_key_to_value: dict[str, str],
+    threshold_value: float,
+    threshold_key: float,
+) -> dict[str, FuzzyResult]:
     if not unresolved_keys:
         return {}
 
-    resolved: dict[str, str] = {}
-    raw_key_candidates = {k for k in known_key_to_value.keys() if k}
-    value_candidates = {v for v in candidate_values if v}
+    resolved: dict[str, FuzzyResult] = {}
+    value_candidates = set(known_key_to_value.values())
+    raw_key_candidates = set(known_key_to_value.keys())
 
     for key in unresolved_keys:
         if not key:
             continue
+        
+        # Stage 1: match raw key to known canonical values
+        best_val, best_score = _best_match(key, value_candidates)
+        if best_val is not None and best_score >= threshold_value:
+            resolved[key] = FuzzyResult(key, best_val)
+            continue
 
-        # Stage 1: match to canonical normalized values
-        if value_candidates:
-            best_val, best_score = _best_match(key, value_candidates)
+        # Stage 2: match raw key to known map keys and inherit mapped value
+        best_raw_key, best_score = _best_match(key, raw_key_candidates)
+        if best_raw_key is not None and best_score >= threshold_key:
+            inherited_value = known_key_to_value[best_raw_key]
+            resolved[key] = FuzzyResult(key, inherited_value, best_raw_key)
+
+    return resolved
+
+def resolve_with_fuzzy_seniority(
+    unresolved_keys: set[tuple[bool, str]],
+    known_key_to_value: dict[tuple[bool, str], str],
+    threshold_value: float,
+    threshold_key: float,
+) -> dict[tuple[bool, str], FuzzyResult]:
+    if not unresolved_keys:
+        return {}
+
+    resolved: dict[tuple[bool, str], FuzzyResult] = {}
+    # Candidate key pools split by source type
+    value_candidates_by_type = {
+        False: set(),
+        True: set()
+    }
+    source_candidate_by_type = {
+        False: set(),
+        True: set()
+    }
+    for (use_title_key, source_key), value in known_key_to_value.items():            
+        value_candidates_by_type[use_title_key].add(value)
+        
+        source_candidate_by_type[use_title_key].add(source_key)
+
+    for key in unresolved_keys:
+        use_title_key, source_key = key
+
+        # Stage 1: compare against value candidates of same source type.
+        stage1_candidates = value_candidates_by_type[use_title_key]
+        if stage1_candidates:
+            best_val, best_score = _best_match(source_key, stage1_candidates)
             if best_val is not None and best_score >= threshold_value:
-                resolved[key] = best_val
+                resolved[key] = FuzzyResult(str(key), best_val)
                 continue
 
-        # Stage 2: match to known raw keys, then inherit mapped normalized value
-        if raw_key_candidates:
-            best_raw_key, best_score = _best_match(key, raw_key_candidates)
-            if best_raw_key is not None and best_score >= threshold_key:
-                inherited_value = known_key_to_value.get(best_raw_key, "")
-                if inherited_value:
-                    resolved[key] = inherited_value
+        # Stage 2: fuzzy against existing source keys of the same type.
+        raw_key_candidates = source_candidate_by_type[use_title_key]
+
+        best_raw_key_text, best_score = _best_match(source_key, raw_key_candidates)
+        if best_raw_key_text is not None and best_score >= threshold_key:
+            matched_key = (use_title_key, best_raw_key_text)
+            inherited_value = known_key_to_value[matched_key]
+            resolved[key] = FuzzyResult(str(key), inherited_value, best_raw_key_text)
 
     return resolved

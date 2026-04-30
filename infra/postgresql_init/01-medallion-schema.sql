@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS bronze.title_normalization_map (
     key_normalized TEXT PRIMARY KEY,
     value_normalized TEXT NOT NULL,
     method TEXT NOT NULL CHECK (method IN ('llm', 'fuzzy')),
-    ref_id BIGINT,
+    ref_key TEXT REFERENCES bronze.title_normalization_map(key_normalized),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -63,16 +63,18 @@ CREATE TABLE IF NOT EXISTS bronze.location_normalization_map (
     key_normalized TEXT PRIMARY KEY,
     value_normalized TEXT NOT NULL,
     method TEXT NOT NULL CHECK (method IN ('llm', 'fuzzy')),
-    ref_id BIGINT,
+    ref_key TEXT REFERENCES bronze.location_normalization_map(key_normalized),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS bronze.seniority_normalization_map (
-    key_normalized TEXT PRIMARY KEY,
+    use_title_key BOOLEAN NOT NULL DEFAULT FALSE,
+    source_key TEXT NOT NULL,
     value_normalized TEXT NOT NULL,
     method TEXT NOT NULL CHECK (method IN ('llm', 'fuzzy')),
-    ref_id BIGINT,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    ref_key TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (use_title_key, source_key)
 );
 
 -- CREATE TABLE IF NOT EXISTS silver.companies (
