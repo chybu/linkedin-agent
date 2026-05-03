@@ -4,7 +4,7 @@ from linkedin_tool.db.base import SessionLocal
 from linkedin_tool.db.repository import BronzeRepository
 from linkedin_tool.log import print_message, print_announcement
 
-start, end = 0, 20
+start, end = 0, 1000
 max_no_new = 2
 
 # DONT CHANGE

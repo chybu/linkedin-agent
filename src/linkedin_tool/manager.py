@@ -160,6 +160,9 @@ class RequestManager:
                             (scrape_run.jobs_inserted_count or 0) + 1
                         )
                         new_job_ct += 1
+                    elif job_post_res.result == ScrapeResult.FAILED:
+                        # invalid job post id
+                        continue
                     else:
                         # A valid job id from search failing here likely means a hard block
                         # or transient network issue, so stop early and fail unfinished runs.

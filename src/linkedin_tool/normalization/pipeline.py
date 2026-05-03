@@ -4,7 +4,6 @@ from linkedin_tool.normalization.repository import NormalizationRepository
 from linkedin_tool.normalization.llm import GroqLLMNormalizer
 from linkedin_tool.setting import NormalizationConfig
 from linkedin_tool.schema import NormalizationResult, NormalizationSummary, ScrapeResult
-from linkedin_tool.manager import ScrapeService
 from linkedin_tool.log import print_message
 from time import sleep
 
@@ -60,6 +59,7 @@ def _build_normalization_result(
     map_key_to_value: dict[str, dict[object, str]],
     unresolved: dict[str, set[object]],
     resolved_by_method: dict[str, int],
+    error: str | None = ""
 ) -> NormalizationResult:
     ready_ids: list[int] = []
     for raw_id, keys in posting_key_map.items():
@@ -80,8 +80,14 @@ def _build_normalization_result(
                     break
         if ready:
             ready_ids.append(raw_id)
+    
+    if error:
+        status = ScrapeResult.FAILED
+    else:
+        status = ScrapeResult.SUCCESSFUL
 
     return NormalizationResult(
+        result=status,
         ready_job_posting_raw_ids=ready_ids,
         summary=NormalizationSummary(
             total_candidates=len(posting_key_map),
@@ -89,6 +95,7 @@ def _build_normalization_result(
             unresolved_by_domain={d: len(unresolved[d]) for d in NormalizationConfig.DOMAINS.value},
             resolved_by_method=resolved_by_method,
         ),
+        error=error
     )
 
 def run_normalization_pipeline(
@@ -190,6 +197,7 @@ def run_normalization_pipeline(
     # Stage 3: batch llm
     print_message("Normalization", "starting stage 3: llm normalization")
     for domain_i, d in enumerate(NormalizationConfig.DOMAINS.value):
+        print_message("Normalization", f"starting domain {d}")
         if not unresolved[d]:
             continue
         
@@ -198,6 +206,7 @@ def run_normalization_pipeline(
         
         batches = list(_chunks(keys_left, NormalizationConfig.BATCH_SIZE.value))
         for batch_i, batch in enumerate(batches):
+            print_message("Normalization", f"domain {d} batch {batch_i+1}/{len(batches)}")
             rows_to_upsert: list[dict] = []
 
             if d == "seniority":
@@ -206,30 +215,18 @@ def run_normalization_pipeline(
 
                 seniority_res = llm_normalizer.normalize_seniority(raw_senior, raw_title)
                 if seniority_res.result != ScrapeResult.SUCCESSFUL:
+                    print_message("error", seniority_res.error)
                     return _build_normalization_result(
                         posting_key_map=posting_key_map,
                         map_key_to_value=map_key_to_value,
                         unresolved=unresolved,
                         resolved_by_method=resolved_by_method,
+                        error=seniority_res.error
                     )
                 if not seniority_res.content:
                     continue
 
                 s1_labels, s2_labels = seniority_res.content
-                if len(s1_labels) != len(raw_senior):
-                    raise ValueError(
-                        "seniority stage 1 output size mismatch: "
-                        f"expected {len(raw_senior)}, got {len(s1_labels)}"
-                        f"raw seniors: {raw_senior}"
-                        f"labels: {s1_labels}"
-                    )
-                if len(s2_labels) != len(raw_title):
-                    raise ValueError(
-                        "seniority stage 2 output size mismatch: "
-                        f"expected {len(raw_title)}, got {len(s2_labels)}"
-                        f"raw seniors: {raw_title}"
-                        f"labels: {s2_labels}"
-                    )
                     
                 rows_to_upsert = []
 
@@ -256,21 +253,16 @@ def run_normalization_pipeline(
             else:
                 llm_res = llm_normalizer.normalize_batch(d, batch)
                 if llm_res.result != ScrapeResult.SUCCESSFUL:
+                    print_message("error", llm_res.error)
                     return _build_normalization_result(
                         posting_key_map=posting_key_map,
                         map_key_to_value=map_key_to_value,
                         unresolved=unresolved,
                         resolved_by_method=resolved_by_method,
+                        error=llm_res.error
                     )
                 if not llm_res.content:
                     continue
-                if len(llm_res.content) != len(batch):
-                    raise ValueError(
-                        f"{d} llm output size mismatch: "
-                        f"expected {len(batch)}, got {len(llm_res.content)}"
-                        f"raws: {batch}"
-                        f"labels: {llm_res.content}"
-                    )
 
                 rows_to_upsert = [
                     {
@@ -283,7 +275,7 @@ def run_normalization_pipeline(
                 ]
 
             if batch_i<len(batches)-1:
-                sleep(ScrapeService._get_jitter_time())
+                sleep(NormalizationConfig.LLM_INTERVAL.value)
             
             if not rows_to_upsert:
                 continue
@@ -305,7 +297,7 @@ def run_normalization_pipeline(
                 unresolved[d] = unresolved[d] - resolved_keys
                 
         if domain_i<len(NormalizationConfig.DOMAINS.value)-1:
-            sleep(ScrapeService._get_jitter_time())
+            sleep(NormalizationConfig.LLM_INTERVAL.value)
     print_message("Normalization", "finished stage 3: llm normalization")
 
     print_message("Normalization", "finish pipeline")

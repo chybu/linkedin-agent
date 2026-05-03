@@ -7,7 +7,7 @@ MAP_TABLE_BY_DOMAIN = {
     "seniority": "bronze.seniority_normalization_map",
 }
 
-staging_job_posting_table = 'silver.stg_job_postings_raw'
+staging_ready_job_postings_table = 'bronze.staging_ready_job_postings'
 raw_job_posting_table = 'bronze.job_postings_raw'
 
 class NormalizationRepository:
@@ -17,15 +17,15 @@ class NormalizationRepository:
     def fetch_candidate_raw_postings(self, scrape_run_ids: list[int]) -> list[dict]:
         """
         1. fetch raw job posting tables in bronze having given scrape run ids
-        2. only return normalized job posting (not in silver)
+        2. only return normalized job posting that's not normalized
         """
         
         if not scrape_run_ids:
             return []
         
-        silver_exists = self._silver_staging_job_postings_exists()
+        staging_ready_exists = self._staging_ready_job_postings_exists()
         
-        if silver_exists:
+        if staging_ready_exists:
             stmt = (
                 text(
                     f"""
@@ -38,7 +38,7 @@ class NormalizationRepository:
                     where r.scrape_run_id in :run_ids
                     and not exists (
                         select 1
-                        from {staging_job_posting_table} s
+                        from {staging_ready_job_postings_table} s
                         where s.job_posting_raw_id = r.job_posting_raw_id
                     )
                     """
@@ -169,14 +169,14 @@ class NormalizationRepository:
         self.session.execute(stmt, rows)
         self.session.commit()
     
-    def _silver_staging_job_postings_exists(self) -> bool:
+    def _staging_ready_job_postings_exists(self) -> bool:
         # to_regclass('schema.table'): This is a PostgreSQL function that looks up a table by name.
         # If the table exists, it returns the table's internal ID (OID).
         # If the table does not exist, it returns NULL (unlike other methods that might throw an error).
         
         exists = self.session.execute(
             text("SELECT to_regclass(:table_path) IS NOT NULL"),
-            {"table_path": staging_job_posting_table}
+            {"table_path": staging_ready_job_postings_table}
         ).scalar_one()
         
         return exists

@@ -7,7 +7,7 @@ class Setting(Enum):
     MIN_SHORT_SLEEP = 1 # seconds
     MAX_SHORT_SLEEP = 4 # seconds
 
-    FAIL_RETRY_PENALTY = 60 # seconds
+    FAIL_RETRY_PENALTY = 60 * 5 # seconds
     MAX_RETRIES = 3 # times
     JOB_SEARCH_WEIGHT = 1 # requests
     JOB_POST_WEIGHT = 1 # requests
@@ -17,11 +17,13 @@ class Setting(Enum):
     DATABASE_URL = "postgresql+psycopg://user:password@localhost:5432/jobsdb"
 
 class NormalizationConfig(Enum):
-    BATCH_SIZE = 10
+    BATCH_SIZE = 3
     FUZZY_VAL_THRESH = 0.90
     FUZZY_KEY_THRESH = 0.94
     DOMAINS = ("title", "location", "seniority")
     METHODS = ("map", "fuzzy", "llm")
     LLM = "meta-llama/llama-4-scout-17b-16e-instruct"
     GROQ_API_KEY = "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"
+    # GROQ_API_KEY = "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"
     MAX_TOKEN = 8192
+    LLM_INTERVAL = 5 # seconds

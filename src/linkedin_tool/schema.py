@@ -88,8 +88,10 @@ class NormalizationSummary:
 
 @dataclass
 class NormalizationResult:
+    result: ScrapeResult = ScrapeResult.SUCCESSFUL
     ready_job_posting_raw_ids: list[int] = field(default_factory=list)
     summary: NormalizationSummary = field(default_factory=NormalizationSummary)
+    error: str | None = None
     
 @dataclass
 class FuzzyResult:

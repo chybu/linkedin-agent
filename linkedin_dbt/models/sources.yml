@@ -1,0 +1,9 @@
+sources:
+  - name: bronze
+    schema: bronze
+    tables:
+      - name: staging_ready_job_postings
+      - name: job_postings_raw
+      - name: title_normalization_map
+      - name: location_normalization_map
+      - name: seniority_normalization_map

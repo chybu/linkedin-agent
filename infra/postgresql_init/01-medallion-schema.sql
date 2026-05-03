@@ -46,8 +46,6 @@ CREATE TABLE IF NOT EXISTS bronze.job_postings_raw (
     job_function_raw TEXT,
     industry_raw TEXT,
     description_raw TEXT,
-    criteria_payload JSONB,
-    raw_payload JSONB,
     scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -77,41 +75,53 @@ CREATE TABLE IF NOT EXISTS bronze.seniority_normalization_map (
     PRIMARY KEY (use_title_key, source_key)
 );
 
--- CREATE TABLE IF NOT EXISTS silver.companies (
---     company_id BIGSERIAL PRIMARY KEY,
---     company_name TEXT NOT NULL,
---     company_name_normalized TEXT NOT NULL,
---     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
--- );
+CREATE TABLE IF NOT EXISTS bronze.staging_ready_job_postings (
+    scrape_run_id BIGINT NOT NULL,
+    job_posting_raw_id BIGINT NOT NULL,
+    ready_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (scrape_run_id, job_posting_raw_id),
+    FOREIGN KEY (scrape_run_id)
+        REFERENCES bronze.scrape_runs(scrape_run_id),
+    FOREIGN KEY (job_posting_raw_id)
+        REFERENCES bronze.job_postings_raw(job_posting_raw_id)
+);
 
--- CREATE TABLE IF NOT EXISTS silver.locations (
---     location_id BIGSERIAL PRIMARY KEY,
---     location_raw TEXT,
---     location_normalized TEXT NOT NULL,
---     city TEXT,
---     state_region TEXT,
---     country TEXT,
---     is_remote BOOLEAN,
---     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
--- );
+CREATE TABLE IF NOT EXISTS bronze.normalization_process_runs (
+    normalization_process_run_id BIGSERIAL PRIMARY KEY,
 
--- CREATE TABLE IF NOT EXISTS silver.job_postings (
---     job_id BIGINT PRIMARY KEY,
---     job_posting_raw_id BIGINT NOT NULL REFERENCES bronze.job_postings_raw(job_posting_raw_id),
---     company_id BIGINT REFERENCES silver.companies(company_id),
---     location_id BIGINT REFERENCES silver.locations(location_id),
---     title TEXT NOT NULL,
---     role_family TEXT NOT NULL,
---     company_name TEXT,
---     location_name TEXT,
---     posted_at DATE,
---     seniority_level_raw TEXT,
---     seniority_level_normalized TEXT,
---     employment_type TEXT,
---     job_function TEXT,
---     industry TEXT,
---     applicant_count INTEGER,
---     description TEXT,
---     source_url TEXT,
---     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
--- );
+    scrape_run_ids BIGINT[] NOT NULL,
+
+    status TEXT NOT NULL CHECK (
+        status IN ('running', 'successful', 'failed')
+    ),
+
+    stage TEXT NOT NULL CHECK (
+        stage IN ('normalization', 'dbt', 'skill_extraction')
+    ),
+
+    error TEXT,
+
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ
+);
+
+
+CREATE TABLE IF NOT EXISTS silver.dim_skills (
+    skill_id BIGSERIAL PRIMARY KEY,
+    skill_name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS silver.job_posting_skills (
+    job_posting_raw_id BIGINT NOT NULL,
+    skill_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (job_posting_raw_id, skill_id),
+
+    FOREIGN KEY (job_posting_raw_id)
+        REFERENCES bronze.job_postings_raw(job_posting_raw_id),
+
+    FOREIGN KEY (skill_id)
+        REFERENCES silver.dim_skills(skill_id)
+);
+

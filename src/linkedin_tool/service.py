@@ -59,10 +59,11 @@ class ScrapeService:
 
         except HTTPError as e:
             status_code = e.response.status_code
-            if status_code in (429, 403, 500, 502, 503, 504):
-                res = Result(ScrapeResult.RETRY)
-            else:
+            if status_code ==404:
                 res = Result(ScrapeResult.FAILED)
+            else:
+                # in (429, 403, 500, 502, 503, 504)
+                res = Result(ScrapeResult.RETRY)
             res.error = str(e)
                 
             print_message(res.result.value, f"job search at start index {request.start} because {res.error}")
@@ -89,10 +90,11 @@ class ScrapeService:
 
         except HTTPError as e:
             status_code = e.response.status_code
-            if status_code in (429, 403, 500, 502, 503, 504):
-                res = Result(ScrapeResult.RETRY)
-            else:
+            if status_code == 404:
                 res = Result(ScrapeResult.FAILED)
+            else:
+                # in (429, 403, 500, 502, 503, 504)
+                res = Result(ScrapeResult.RETRY)
             res.error = str(e)
             print_message(res.result.value, f"job post for job id {job_id} because {res.error}")
             

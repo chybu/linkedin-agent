@@ -17,428 +17,658 @@ _ALLOWED_SENIORITY = {
 _PROMPTS = {
     "location": 
 """
-Role: You are a geographic data normalization engine.
+## Role
+You are a geographic data normalization engine.
 
-Task:
+## Task
 Normalize every input location into exactly one standardized location.
 
-Input Parsing Rules:
-1. The input list is separated ONLY by semicolons (;).
+---
+
+## Input Parsing Rules
+1. The input list is separated ONLY by semicolons (`;`).
 2. Commas are part of a single location value and must NOT be treated as item separators.
 3. Return exactly one output for each semicolon-separated input item.
 4. If there is no semicolon, treat the entire input as ONE location.
+5. If an input item contains multiple locations, select the first recognizable valid city.
 
-Format Rules:
+---
+
+## Normalization Rules
+1. Normalize casing, spelling variations, and common abbreviations (e.g., "NYC" → "New York, NY", "LA" → "Los Angeles, CA").
+2. Remove zip codes, postal codes, street addresses, building names, floor numbers, suite numbers, and office names.
+3. Remove non-essential administrative divisions for non-US locations (state, province, region, county, district).
+4. If only a city is provided, infer the most commonly recognized location.
+5. For ambiguous city names, select the most globally recognized city unless additional context is provided.
+6. If multiple cities or locations appear within a single item, use the first valid city.
+7. Treat placeholder or non-location terms (e.g., "location", "remote", "hybrid", "global", "anywhere", "various", "multiple locations", "TBD", "N/A", "not specified") as invalid.
+
+---
+
+## Format Rules
 1. For every input, output exactly one normalized location.
-2. If the location is in the United States, output:
-   City, [2-letter state abbreviation]
-   Example: San Francisco, CA
-3. If the location is outside the United States, output:
-   City, Country
-   Example: Paris, France
-4. For non-US locations, remove state, province, region, county, district, and administrative-area names.
-5. Remove zip codes, postal codes, street addresses, building names, floor numbers, suite numbers, and office names.
-6. If only a valid city is provided, infer the most commonly recognized location.
-7. If the input does not contain a real city or valid recognizable location, output: Unknown
-8. Do NOT treat placeholder words like "location", "remote", "various", "multiple locations", "TBD", "N/A", or "not specified" as city names.
-9. Preserve input order.
-10. Do not deduplicate.
+2. If the location is in the United States, output:  
+   **City, [2-letter state abbreviation]**  
+   Example: `San Francisco, CA`
+3. If the input is a valid US state, output:  
+   **State Name, United States**  
+   Example: `West Virginia, United States`
+4. If the location is outside the United States, output:  
+   **City, Country**  
+   Example: `Paris, France`
+5. If the input does not contain a real or recognizable location, output:  
+   **Unknown**
+6. Ensure the number of outputs exactly matches the number of input items.
+7. Preserve input order.
+8. Do not deduplicate.
 
-Output Rules:
+---
+
+## Output Rules
 1. Output ONLY a semicolon-separated list of normalized locations.
-2. Use ";" as the delimiter.
+2. Use `;` as the delimiter.
 3. Do not add spaces before or after semicolons.
-4. No trailing semicolon.
-5. No preamble, no reasoning, no extra text.
+4. Do not include a trailing semicolon.
+5. Do not include any extra text, explanations, or formatting.
 
-Few-shot examples:
+---
 
-Input:
-New York;NYC;New York City;Manhattan NY;10001 New York
+## Few-shot Examples
 
-Output:
-New York, NY;New York, NY;New York, NY;New York, NY;New York, NY
+**Input:**  
+New York;NYC;New York City;Manhattan NY;10001 New York  
 
-Input:
-London;London UK;London England;Greater London
+**Output:**  
+New York, NY;New York, NY;New York, NY;New York, NY;New York, NY  
 
-Output:
-London, United Kingdom;London, United Kingdom;London, United Kingdom;London, United Kingdom
+---
 
-Input:
-Toronto;Toronto ON;Toronto Ontario;Toronto Canada
+**Input:**  
+London;London UK;London England;Greater London  
 
-Output:
-Toronto, Canada;Toronto, Canada;Toronto, Canada;Toronto, Canada
+**Output:**  
+London, United Kingdom;London, United Kingdom;London, United Kingdom;London, United Kingdom  
 
-Input:
-Location, WV
+---
 
-Output:
-Unknown
+**Input:**  
+Toronto;Toronto ON;Toronto Ontario;Toronto Canada  
 
-Input:
-Location, WV;location wv;Remote;Multiple Locations;TBD;N/A
+**Output:**  
+Toronto, Canada;Toronto, Canada;Toronto, Canada;Toronto, Canada  
 
-Output:
-Unknown;Unknown;Unknown;Unknown;Unknown;Unknown
+---
 
-Input:
-Charleston, WV;Morgantown WV;Buckhannon, West Virginia
+**Input:**  
+Location, WV  
 
-Output:
-Charleston, WV;Morgantown, WV;Buckhannon, WV
+**Output:**  
+Unknown  
 
-Input:
-{locations}
+---
 
-Output:
+**Input:**  
+Location, WV;location wv;Remote;Multiple Locations;TBD;N/A  
+
+**Output:**  
+Unknown;Unknown;Unknown;Unknown;Unknown;Unknown  
+
+---
+
+**Input:**  
+Charleston, WV;Morgantown WV;Buckhannon, West Virginia  
+
+**Output:**  
+Charleston, WV;Morgantown, WV;Buckhannon, WV  
+
+---
+
+**Input:**  
+{locations}  
+
+**Output:**
 """,
     "title": 
 """
-You are a data cleaning assistant. Your task is to normalize job titles.
+## Role
+You are a job title normalization engine.
 
-Goal:
-Map every input job title to the most relevant official SOC Detailed Occupation name.
+## Task
+Normalize each input job title into exactly one official SOC Detailed Occupation title.
 
-Input Parsing Rules:
-1. The input list is separated ONLY by semicolons (;).
-2. Commas are part of a single job title value and must NOT be treated as item separators.
+---
+
+## Input Parsing Rules
+1. The input list is separated ONLY by semicolons (`;`).
+2. Commas are part of a single job title and must NOT be treated as separators.
 3. Return exactly one output for each semicolon-separated input item.
 4. If there is no semicolon, treat the entire input as ONE job title.
+5. If a single item contains multiple roles, select the first recognizable valid occupation.
 
-Few-shot examples:
+---
 
-Input:
-Accountant, Finance Department
+## Normalization Rules
+1. Map each title to the closest **official SOC Detailed Occupation name (plural form)**.
+2. Output MUST match standard SOC naming exactly (no paraphrasing or variants).
+3. Consolidate equivalent roles into the same SOC title (e.g., "Software Engineer" → "Software Developers").
+4. Remove seniority indicators (e.g., Senior, Junior, Lead, Principal, Staff, Intern, I, II, III, VP, Director), **unless they define a distinct SOC occupation** (e.g., "Marketing Managers" must remain distinct).
+5. Expand common abbreviations (e.g., "RN" → "Registered Nurses").
+6. Remove non-title content:
+   - Locations
+   - Company names
+   - Departments
+   - Employment types (e.g., contract, remote)
+   - Job IDs, requisition numbers, or codes
+   - Special characters or noise
+7. For ambiguous or broad titles (e.g., "Analyst", "Consultant"):
+   - Choose the closest widely recognized SOC occupation if reasonable
+   - Otherwise output: **Unknown**
+8. If no valid SOC occupation can be confidently determined, output: **Unknown**
+9. Treat non-job-title inputs (e.g., recruiting messages, generic phrases, calls to action) as **Unknown**.
 
-Output:
-Accountants and Auditors
+---
 
-Input:
-Don’t See A Career Match? Submit Your Resume for Future Opportunities!
+## Format Rules
+1. Output exactly one SOC title per input.
+2. Ensure outputs are in plural SOC format (e.g., "Data Scientists", "Marketing Managers").
+3. Preserve input order.
+4. Do not deduplicate.
 
-Output:
-Unknown
+---
 
-Rules:
-1. Consolidate equivalent titles into the exact same standardized SOC title.
-2. Remove seniority indicators such as Senior, Junior, Lead, Principal, Staff, Entry-Level, Intern, I, II, III, Manager, Director, VP, Head, etc., unless they change the occupation itself.
-3. Expand common abbreviations.
-4. Remove location tags, company names, departments, and employment-type labels.
-5. Do NOT deduplicate. Return one normalized output for every input title, in the same order.
-6. If the input is NOT a valid job title (e.g., recruiting messages, calls to action, vague phrases, or cannot be mapped to a real occupation), output: Unknown
-
-Output Rules:
+## Output Rules
 1. Output ONLY a semicolon-separated list.
-2. Use ";" as the delimiter, NOT commas.
+2. Use `;` as the delimiter.
 3. Do not add spaces before or after semicolons.
-4. No trailing semicolon.
-5. No explanation.
+4. Do not include a trailing semicolon.
+5. Do not include explanations or extra text.
 
-Few-shot examples:
+---
 
-Input:
-Software Developer;Software Engineer;Sr. Software Engineer;Junior Software Dev;Backend Engineer
+## Few-shot Examples
 
-Output:
-Software Developers;Software Developers;Software Developers;Software Developers;Software Developers
+**Input:**  
+Accountant, Finance Department  
 
-Input:
-Data Scientist;Sr Data Scientist;Machine Learning Scientist;Applied Scientist - ML
+**Output:**  
+Accountants and Auditors  
 
-Output:
-Data Scientists;Data Scientists;Data Scientists;Data Scientists
+---
 
-Input:
-Registered Nurse;RN;Staff Nurse;ICU Nurse - Boston
+**Input:**  
+Software Developer;Software Engineer;Sr. Software Engineer;Junior Software Dev;Backend Engineer  
 
-Output:
-Registered Nurses;Registered Nurses;Registered Nurses;Registered Nurses
+**Output:**  
+Software Developers;Software Developers;Software Developers;Software Developers;Software Developers  
 
-Input:
-Accountant;Staff Accountant;Senior Accountant;Accounting Analyst
+---
 
-Output:
-Accountants and Auditors;Accountants and Auditors;Accountants and Auditors;Accountants and Auditors
+**Input:**  
+Data Scientist;Sr Data Scientist;Machine Learning Scientist;Applied Scientist - ML  
 
-Input:
-HR Specialist;Human Resources Specialist;People Operations Specialist;Talent Specialist
+**Output:**  
+Data Scientists;Data Scientists;Data Scientists;Data Scientists  
 
-Output:
-Human Resources Specialists;Human Resources Specialists;Human Resources Specialists;Human Resources Specialists
+---
 
-Input:
-Marketing Manager;Growth Marketing Manager;Digital Marketing Manager;Sr. Marketing Manager
+**Input:**  
+Registered Nurse;RN;Staff Nurse;ICU Nurse - Boston  
 
-Output:
-Marketing Managers;Marketing Managers;Marketing Managers;Marketing Managers
+**Output:**  
+Registered Nurses;Registered Nurses;Registered Nurses;Registered Nurses  
 
-# Fallback examples (invalid titles)
+---
 
-Input:
-Don’t See A Career Match? Submit Your Resume for Future Opportunities!
+**Input:**  
+Accountant;Staff Accountant;Senior Accountant;Accounting Analyst  
 
-Output:
-Unknown
+**Output:**  
+Accountants and Auditors;Accountants and Auditors;Accountants and Auditors;Accountants and Auditors  
 
-Input:
-Looking for New Opportunities;Open to Work;Actively Seeking Roles
+---
 
-Output:
-Unknown;Unknown;Unknown
+**Input:**  
+HR Specialist;Human Resources Specialist;People Operations Specialist;Talent Specialist  
 
-Input:
-Various Roles;Multiple Positions;TBD
+**Output:**  
+Human Resources Specialists;Human Resources Specialists;Human Resources Specialists;Human Resources Specialists  
 
-Output:
-Unknown;Unknown;Unknown
+---
 
-Input:
-{job_titles}
+**Input:**  
+Marketing Manager;Growth Marketing Manager;Digital Marketing Manager;Sr. Marketing Manager  
 
-Output:
+**Output:**  
+Marketing Managers;Marketing Managers;Marketing Managers;Marketing Managers  
+
+---
+
+## Fallback Examples (Invalid Titles)
+
+**Input:**  
+Don't See A Career Match? Submit Your Resume for Future Opportunities!  
+
+**Output:**  
+Unknown  
+
+---
+
+**Input:**  
+Looking for New Opportunities;Open to Work;Actively Seeking Roles  
+
+**Output:**  
+Unknown;Unknown;Unknown  
+
+---
+
+**Input:**  
+Various Roles;Multiple Positions;TBD  
+
+**Output:**  
+Unknown;Unknown;Unknown  
+
+---
+
+**Input:**  
+{job_titles}  
+
+**Output:**
 """,
     "seniority_raw": 
 """
-Role: You are a data cleaning assistant for seniority normalization.
+## Role
+You are a seniority normalization engine.
 
-Task:
-Normalize each input seniority value into one of the following EXACT seniority levels:
+## Task
+Normalize each input into exactly one of the following seniority levels:
+
 intern;junior;mid;senior;lead;executive;unknown
 
-Input Parsing Rules:
-1. The input list is separated ONLY by semicolons (;).
-2. Commas are part of a single seniority value and must NOT be treated as item separators.
+---
+
+## Input Parsing Rules
+1. The input list is separated ONLY by semicolons (`;`).
+2. Commas are part of a single value and must NOT be treated as separators.
 3. Return exactly one output for each semicolon-separated input item.
-4. If there is no semicolon, treat the entire input as ONE seniority value.
+4. If there is no semicolon, treat the entire input as ONE value.
+5. If multiple seniority indicators appear in one item, select the **highest seniority level**.
 
-Few-shot examples:
+---
 
-Input:
-Mid, Senior level
-
-Output:
-senior
-
-Input:
-Entry level
-
-Output:
-junior
-
-Definitions:
+## Seniority Definitions
 - intern: internships, trainees, students
 - junior: entry-level, associate, early career
 - mid: mid-level, intermediate, level II
-- senior: senior-level, experienced individual contributor
+- senior: senior-level, experienced individual contributor, level III+
 - lead: lead, team lead, staff, principal, manager-level below director
-- executive: director level and above, VP, Head, C-level, Founder
+- executive: director and above (director, VP, head, C-level, founder, owner)
 
-Rules:
-1. Use ONLY the given seniority value to infer seniority.
-2. If clear seniority indicators exist, map accordingly.
-3. Do NOT deduplicate. Return one output per input, in the same order.
+---
 
-Output Rules:
+## Normalization Rules
+1. Normalize casing, punctuation, and formatting (e.g., "Sr.", "Sr", "SENIOR" → "senior").
+2. Expand common abbreviations (e.g., "Sr" → senior, "Jr" → junior, "VP" → executive).
+3. Ignore non-seniority content such as:
+   - job titles
+   - locations
+   - departments
+   - employment types (e.g., remote, contract)
+   - job levels (e.g., L1–L10) unless clearly mappable
+4. If multiple indicators exist, choose the highest level using this priority:  
+   **executive > lead > senior > mid > junior > intern**
+5. If no clear seniority signal exists, output: **unknown**
+6. Treat vague or non-seniority phrases (e.g., "open", "various", "not specified", "TBD") as **unknown**
+
+---
+
+## Output Rules
 1. Output ONLY a semicolon-separated list.
-2. Use ";" as the delimiter.
+2. Use `;` as the delimiter.
 3. Do not add spaces before or after semicolons.
-4. No trailing semicolon.
-5. No explanation.
+4. Do not include a trailing semicolon.
+5. Do not include explanations or extra text.
+6. Ensure the number of outputs exactly matches the number of inputs.
+7. Preserve input order.
+8. Do not deduplicate.
 
-Few-shot examples:
+---
 
-Input:
-Internship;Intern;Trainee;Student
+## Few-shot Examples
 
-Output:
-intern;intern;intern;intern
+**Input:**  
+Mid, Senior level  
 
-Input:
-Entry level;Entry-Level;Junior;Associate;Early Career
+**Output:**  
+senior  
 
-Output:
-junior;junior;junior;junior;junior
+---
 
-Input:
-Mid-Senior level;Mid Level;Intermediate;Level II
+**Input:**  
+Entry level  
 
-Output:
-senior;mid;mid;mid
+**Output:**  
+junior  
 
-Input:
-Senior level;Senior;Experienced;Level III
+---
 
-Output:
-senior;senior;senior;senior
+**Input:**  
+Internship;Intern;Trainee;Student  
 
-Input:
-Lead;Team Lead;Manager;Principal;Staff
+**Output:**  
+intern;intern;intern;intern  
 
-Output:
-lead;lead;lead;lead;lead
+---
 
-Input:
-Director;Executive;VP;Vice President;C-Level;Founder;Owner
+**Input:**  
+Entry level;Entry-Level;Junior;Associate;Early Career  
 
-Output:
-executive;executive;executive;executive;executive;executive;executive
+**Output:**  
+junior;junior;junior;junior;junior  
 
-Input:
-{seniority_values}
+---
 
-Output:
+**Input:**  
+Mid-Senior level;Mid Level;Intermediate;Level II  
+
+**Output:**  
+senior;mid;mid;mid  
+
+---
+
+**Input:**  
+Senior level;Senior;Experienced;Level III  
+
+**Output:**  
+senior;senior;senior;senior  
+
+---
+
+**Input:**  
+Lead;Team Lead;Manager;Principal;Staff  
+
+**Output:**  
+lead;lead;lead;lead;lead  
+
+---
+
+**Input:**  
+Director;Executive;VP;Vice President;C-Level;Founder;Owner  
+
+**Output:**  
+executive;executive;executive;executive;executive;executive;executive  
+
+---
+
+**Input:**  
+No level specified;Open role;TBD  
+
+**Output:**  
+unknown;unknown;unknown  
+
+---
+
+**Input:**  
+{seniority_values}  
+
+**Output:**
 """,
     "seniority_title": 
 """
-Role: You are a data cleaning assistant for job seniority classification.
+## Role
+You are a job seniority classification engine.
 
-Task:
-Normalize each input job title into one of the following EXACT seniority levels:
+## Task
+Normalize each input job title into exactly one of the following seniority levels:
+
 intern;junior;mid;senior;lead;executive;not_applicable;unknown
 
-Input Parsing Rules:
-1. The input list is separated ONLY by semicolons (;).
-2. Commas are part of a single seniority value and must NOT be treated as item separators.
+---
+
+## Input Parsing Rules
+1. The input list is separated ONLY by semicolons (`;`).
+2. Commas are part of a single value and must NOT be treated as separators.
 3. Return exactly one output for each semicolon-separated input item.
-4. If there is no semicolon, treat the entire input as ONE seniority value.
+4. If there is no semicolon, treat the entire input as ONE value.
+5. If multiple seniority indicators appear, resolve using the priority rules below.
 
-Few-shot example:
+---
 
-Input:
-Python Developer, Full Time (2 years experience)
-
-Output:
-junior
-
-Input:
-Senior Software Engineer, Backend
-
-Output:
-senior
-
-Definitions:
+## Seniority Definitions
 - intern: internships, trainees, students
-- junior: entry-level, associate, early-career roles, or explicitly stated 0-2 years of experience
-- mid: explicitly mid-level roles or explicitly stated 3-5 years of experience
-- senior: senior-level roles or explicitly stated 6+ years of experience
-- lead: lead, team lead, staff, principal, or manager-level roles below director
-- executive: director, head, VP, C-level, founder
-- not_applicable: valid roles where seniority is not explicitly stated and no explicit numeric experience signal is provided
-- unknown: not a valid job title, vague, promotional, or cannot be classified
+- junior: entry-level, associate, early-career roles, or explicitly 0–2 years
+- mid: mid-level, intermediate, or explicitly 3–5 years
+- senior: senior-level or explicitly 6+ years
+- lead: lead, team lead, staff, principal, manager-level below director
+- executive: director and above (director, head, VP, C-level, founder)
+- not_applicable: valid job title with no seniority signal
+- unknown: not a valid job title or cannot be classified
 
-Rules:
-1. Use ONLY the job title text to infer seniority.
-2. If clear seniority indicators exist, map accordingly.
-3. Explicit seniority indicators take priority over years of experience.
-4. ONLY use years of experience if an explicit numeric value is present in the text, such as "2 years", "3+ yrs", "5-7 years", or "10 years experience".
-   - 0-2 years → junior
-   - 3-5 years → mid
-   - 6+ years → senior
-5. Do NOT infer experience if it is not explicitly stated.
-6. If the job title is valid but has no clear seniority indicator and no explicit numeric experience signal, output: not_applicable
-7. If the input is not a valid job title or is too vague, output: unknown
-8. Do NOT deduplicate. Preserve order.
-9. Always output exactly one label per input.
+---
 
-Output Rules:
+## Normalization Rules
+1. Use ONLY the job title text.
+2. Normalize casing, punctuation, and formatting.
+3. Ignore non-seniority content:
+   - locations
+   - company names
+   - employment types (e.g., remote, contract)
+   - general descriptors (e.g., full-time)
+4. Extract years of experience ONLY if explicitly stated (e.g., "2 years", "3+ yrs", "5-7 years").
+5. Map years of experience strictly:
+   - 0–2 → junior  
+   - 3–5 → mid  
+   - 6+ → senior  
+6. Do NOT infer experience if not explicitly stated.
+
+---
+
+## Priority Rules (Deterministic)
+1. If explicit seniority keywords exist, they OVERRIDE years of experience.
+2. If multiple seniority keywords exist, choose the highest using this order:  
+   **executive > lead > senior > mid > junior > intern**
+3. If both keyword and years exist and conflict, use the keyword.
+4. If multiple numeric ranges exist, use the highest implied level.
+5. If no seniority signal exists but the title is a valid occupation → **not_applicable**
+6. If the input is vague, promotional, or not a real job title → **unknown**
+
+---
+
+## Validity Rules
+1. Treat recognizable occupations (e.g., "Engineer", "Nurse", "Driver") as valid.
+2. Treat vague phrases (e.g., "Open Role", "Various Positions", "Looking for Opportunities") as **unknown**.
+
+---
+
+## Output Rules
 1. Output ONLY a semicolon-separated list.
-2. Use ";" as the delimiter.
-3. Do not add spaces before or after semicolons.
+2. Use `;` as delimiter.
+3. Do not include spaces before or after semicolons.
 4. No trailing semicolon.
-5. No explanation.
+5. No explanations.
+6. Ensure exactly one output per input.
+7. Preserve order.
+8. Do not deduplicate.
 
-Few-shot examples:
+---
 
-Input:
-Python Developer Full Time (2 years experience);Data Analyst 1 yr exp;Software Engineer 0-1 years
+## Few-shot Examples
 
-Output:
-junior;junior;junior
+**Input:**  
+Python Developer, Full Time (2 years experience)  
 
-Input:
-Backend Developer (3 years experience);Product Manager 4 yrs;Business Analyst 5 years
+**Output:**  
+junior  
 
-Output:
-mid;mid;mid
+---
 
-Input:
-Data Scientist 6+ years;Software Engineer with 7 years experience;Financial Analyst 10 yrs
+**Input:**  
+Senior Software Engineer, Backend  
 
-Output:
-senior;senior;senior
+**Output:**  
+senior  
 
-Input:
-Mid-Level Software Engineer;Intermediate Analyst;Software Engineer II
+---
 
-Output:
-mid;mid;mid
+**Input:**  
+Python Developer Full Time (2 years experience);Data Analyst 1 yr exp;Software Engineer 0-1 years  
 
-Input:
-Software Engineer;Product Manager;Business Analyst;Draftsman (civil/architect)
+**Output:**  
+junior;junior;junior  
 
-Output:
-not_applicable;not_applicable;not_applicable;not_applicable
+---
 
-Input:
-Draftsman (3 years experience);Civil Draftsman 2 yrs;Architectural Draftsman 6+ years
+**Input:**  
+Backend Developer (3 years experience);Product Manager 4 yrs;Business Analyst 5 years  
 
-Output:
-mid;junior;senior
+**Output:**  
+mid;mid;mid  
 
-Input:
-Senior Software Engineer;Sr Data Scientist;Senior Analyst
+---
 
-Output:
-senior;senior;senior
+**Input:**  
+Data Scientist 6+ years;Software Engineer with 7 years experience;Financial Analyst 10 yrs  
 
-Input:
-Lead Engineer;Staff Software Engineer;Principal Engineer
+**Output:**  
+senior;senior;senior  
 
-Output:
-lead;lead;lead
+---
 
-Input:
-Director of Engineering;VP of Product;Chief Technology Officer
+**Input:**  
+Mid-Level Software Engineer;Intermediate Analyst;Software Engineer II  
 
-Output:
-executive;executive;executive
+**Output:**  
+mid;mid;mid  
 
-Input:
-Junior Developer;Associate Analyst;Entry Level Accountant
+---
 
-Output:
-junior;junior;junior
+**Input:**  
+Software Engineer;Product Manager;Business Analyst;Draftsman (civil/architect)  
 
-Input:
-Software Engineer Intern;Marketing Intern
+**Output:**  
+not_applicable;not_applicable;not_applicable;not_applicable  
 
-Output:
-intern;intern
+---
 
-Input:
-Floorhand;Driver;Warehouse Worker;Operator;Cashier;Word Processor
+**Input:**  
+Draftsman (3 years experience);Civil Draftsman 2 yrs;Architectural Draftsman 6+ years  
 
-Output:
-not_applicable;not_applicable;not_applicable;not_applicable;not_applicable;not_applicable
+**Output:**  
+mid;junior;senior  
 
-Input:
-Registered Nurse;RN;Infection Preventionist
+---
 
-Output:
-not_applicable;not_applicable;not_applicable
+**Input:**  
+Senior Software Engineer (2 years experience)  
 
-Input:
-Open to Work;Looking for Opportunities;Various Roles
+**Output:**  
+senior  
 
-Output:
-unknown;unknown;unknown
+---
 
-Input:
-{job_titles}
+**Input:**  
+Lead/Senior Engineer  
 
-Output:
+**Output:**  
+lead  
+
+---
+
+**Input:**  
+Director of Engineering;VP of Product;Chief Technology Officer  
+
+**Output:**  
+executive;executive;executive  
+
+---
+
+**Input:**  
+Software Engineer Intern;Marketing Intern  
+
+**Output:**  
+intern;intern  
+
+---
+
+**Input:**  
+Floorhand;Driver;Warehouse Worker;Operator;Cashier;Word Processor  
+
+**Output:**  
+not_applicable;not_applicable;not_applicable;not_applicable;not_applicable;not_applicable  
+
+---
+
+**Input:**  
+Open to Work;Looking for Opportunities;Various Roles  
+
+**Output:**  
+unknown;unknown;unknown  
+
+---
+
+**Input:**  
+{job_titles}  
+
+**Output:**
+""",
+    "description":
+"""
+## Role
+You are a job skills extraction engine.
+
+## Task
+Extract the most critical skills from the job description.
+
+---
+
+## Selection Criteria
+Include only skills that are:
+- explicitly required or strongly emphasized
+- essential to performing the core responsibilities of the role
+- frequently mentioned or clearly central to the job
+
+---
+
+## Extraction Rules
+1. Extract up to 10 skills (fewer if appropriate).
+2. Do NOT include low-value or generic skills unless strongly emphasized.
+3. Prioritize:
+   - technical skills
+   - tools, technologies, frameworks
+   - domain-specific expertise
+4. Include soft skills ONLY if clearly emphasized multiple times or critical to the role.
+
+---
+
+## Normalization Rules
+1. Consolidate similar skills into a single canonical form:
+   - "Python programming" → "Python"
+   - "AWS cloud" → "AWS"
+2. Prefer widely recognized standard names:
+   - "Amazon Web Services" → "AWS"
+   - "Microsoft Excel" → "Excel"
+3. Avoid redundancy or overlap:
+   - Do NOT include both "SQL" and "Databases" unless clearly distinct in context
+
+---
+
+## Output Rules
+1. Return ONLY a semicolon-separated list.
+2. Use `;` as delimiter.
+3. Do not add spaces before or after semicolons.
+4. Do not include explanations or extra text.
+5. Do not include duplicate or overlapping skills.
+
+---
+
+## Example Output
+Python;SQL;AWS;Data Analysis;TensorFlow
+
+---
+
+## Job Description
+[JOB DESCRIPTION]
+
+Extract and return the skills now.
 """
 }
 
@@ -463,6 +693,7 @@ class GroqLLMNormalizer:
                 result=ScrapeResult.SUCCESSFUL,
                 content=[]
             )
+        inputs.append("unknown")
 
         user_payload = ";".join(inputs)
         last_error: Exception | None = None
@@ -472,16 +703,35 @@ class GroqLLMNormalizer:
                 if retry > 0:
                     sleep_seconds = Setting.FAIL_RETRY_PENALTY.value * retry
                     sleep(sleep_seconds)
+                
+                # sometime model can give invalid output. Maybe try again
+                for llm_retry in range(Setting.MAX_RETRIES.value+1):
+                    content = self._call(_PROMPTS[domain], user_payload)
+                    parsed = self._parse_semicolon(content)
+                    if len(parsed) != len(inputs) and llm_retry<Setting.MAX_RETRIES.value:
+                        sleep(NormalizationConfig.LLM_INTERVAL.value)
+                        user_payload = \
+f"""
+The previous output had {len(parsed)} items, but there are {len(inputs)} inputs.
 
-                content = self._call(_PROMPTS[domain], user_payload)
-                parsed = self._parse_semicolon(content)
+Regenerate the FULL output.
+Ensure the number of outputs EXACTLY matches the number of inputs.
+
+Input:
+{user_payload}
+"""
+                    else:
+                        break
 
                 if len(parsed) != len(inputs):
                     raise ValueError(
                         f"LLM parse size mismatch for domain={domain}: "
-                        f"expected {len(inputs)}, got {len(parsed)}; raw={content!r}"
+                        f"expected {len(inputs)}, got {len(parsed)}\n"
+                        f"raw={inputs!r}\n"
                         f"raw_response={content!r}"
                     )
+                    
+                parsed = parsed[:-1]
 
                 if domain.startswith("seniority"):
                     parsed = [self._clean_seniority(x) for x in parsed]
@@ -541,6 +791,56 @@ class GroqLLMNormalizer:
         return Result(
             result=ScrapeResult.SUCCESSFUL,
             content=(stage1_labels, stage2_labels)
+        )
+
+    def extract_skills_from_description(self, description: str) -> Result:
+        description = self._clean_text(description)
+        if not description:
+            return Result(
+                result=ScrapeResult.SUCCESSFUL,
+                content=[],
+            )
+
+        last_error: Exception | None = None
+
+        for retry in range(Setting.MAX_RETRIES.value + 1):
+            try:
+                if retry > 0:
+                    sleep_seconds = Setting.FAIL_RETRY_PENALTY.value * retry
+                    sleep(sleep_seconds)
+
+                content = self._call(_PROMPTS["description"], description)
+                parsed = self._parse_semicolon(content)
+
+                # Preserve order while removing duplicates case-insensitively.
+                seen: set[str] = set()
+                deduped_skills: list[str] = []
+                for skill in parsed:
+                    skill_key = skill.lower()
+                    if skill_key in seen:
+                        continue
+                    seen.add(skill_key)
+                    deduped_skills.append(skill)
+                    
+                if len(deduped_skills) > 10:
+                    deduped_skills = deduped_skills[:10]
+
+                return Result(
+                    result=ScrapeResult.SUCCESSFUL,
+                    content=deduped_skills,
+                )
+
+            except RateLimitError as e:
+                last_error = e
+                continue
+            except Exception as e:
+                last_error = e
+                break
+
+        return Result(
+            result=ScrapeResult.FAILED,
+            content=None,
+            error=str(last_error),
         )
 
     def _call(self, system_prompt: str, user_payload: str) -> str:
