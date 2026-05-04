@@ -1,0 +1,3 @@
+from linkedin_tool.setting import NormalizationConfig
+
+print(NormalizationConfig.GROQ_API_KEYS.value)

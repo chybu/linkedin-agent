@@ -1,4 +1,15 @@
 from enum import Enum
+from pathlib import Path
+import tomllib
+
+def get_api_keys() -> list[str]:
+    ROOT_DIR = Path(__file__).resolve().parents[2]
+    SECRETS_FILE = ROOT_DIR / ".secrets.toml"
+
+    with SECRETS_FILE.open("rb") as f:
+        secrets = tomllib.load(f)
+    
+    return secrets["groq_api_keys"]
 
 class Setting(Enum):
     REQUEST_TIMEOUT = 30 # seconds
@@ -26,3 +37,4 @@ class NormalizationConfig(Enum):
     MAX_TOKEN = 8192
     LLM_INTERVAL = 5 # seconds
     EXTRACT_UNEXTRACTED_READY_JOBS = True
+    GROQ_API_KEYS = get_api_keys()
