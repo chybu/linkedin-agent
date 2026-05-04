@@ -1,16 +1,14 @@
-import json
-import os
-import subprocess
-
-from sqlalchemy import text
+import json, os, subprocess
+from collections import deque
+from sqlalchemy import bindparam, text
 
 from linkedin_tool.db.base import SessionLocal
-from linkedin_tool.log import print_message
+from linkedin_tool.log import print_message, print_announcement
 from linkedin_tool.normalization.extract_skill import extract_skills_for_job_postings
 from linkedin_tool.normalization.llm import GroqLLMNormalizer
 from linkedin_tool.normalization.pipeline import run_normalization_pipeline
 from linkedin_tool.normalization.repository import NormalizationRepository
-from linkedin_tool.schema import ScrapeResult
+from linkedin_tool.schema import ScrapeResult, Result
 from linkedin_tool.setting import NormalizationConfig
 
 
@@ -41,6 +39,35 @@ def fetch_scrape_ids_to_process(session) -> list[int]:
         )
     ).scalars().all()
 
+    return list(rows)
+
+def fetch_unextracted_ready_job_posting_raw_ids(
+    session,
+    scrape_ids: list[int],
+) -> list[int]:
+    if not scrape_ids:
+        return []
+
+    stmt = (
+        text(
+            """
+            select distinct r.job_posting_raw_id
+            from bronze.job_postings_raw r
+            inner join bronze.staging_ready_job_postings sr
+                on sr.scrape_run_id = r.scrape_run_id
+               and sr.job_posting_raw_id = r.job_posting_raw_id
+            where r.scrape_run_id in :scrape_ids
+              and not exists (
+                  select 1
+                  from silver.job_posting_skills js
+                  where js.job_posting_raw_id = r.job_posting_raw_id
+              )
+            order by r.job_posting_raw_id
+            """
+        ).bindparams(bindparam("scrape_ids", expanding=True))
+    )
+
+    rows = session.execute(stmt, {"scrape_ids": scrape_ids}).scalars().all()
     return list(rows)
 
 def create_process_run(session, scrape_ids: list[int]) -> int:
@@ -139,9 +166,10 @@ def run_dbt_for_ready_ids(ready_ids: list[int]) -> None:
         env=env_silver,
     )
 
-def process_scrape_batch(scrape_ids: list[int]) -> bool:
+def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
     process_run_id: int | None = None
     current_stage = "normalization"
+    groq_normalizer =  GroqLLMNormalizer(api_key=api_key)
 
     try:
         with SessionLocal() as session:
@@ -149,11 +177,10 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
 
         with SessionLocal() as session:
             repo = NormalizationRepository(session)
-            llm_normalizer = GroqLLMNormalizer()
             normalization_res = run_normalization_pipeline(
                 repo=repo,
                 scrape_run_ids=scrape_ids,
-                llm_normalizer=llm_normalizer,
+                llm_normalizer=groq_normalizer,
             )
 
         if normalization_res.result != ScrapeResult.SUCCESSFUL:
@@ -166,10 +193,24 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
                     status="failed",
                     error=error,
                 )
-            print_message("error", error)
-            return False
+                
+            return Result(
+                ScrapeResult.FAILED,
+                content=None,
+                error=normalization_res.error
+            )
 
         ready_ids = normalization_res.ready_job_posting_raw_ids
+
+        if NormalizationConfig.EXTRACT_UNEXTRACTED_READY_JOBS.value:
+            with SessionLocal() as session:
+                unextracted_ready_ids = fetch_unextracted_ready_job_posting_raw_ids(
+                    session=session,
+                    scrape_ids=scrape_ids,
+                )
+
+            ready_ids = sorted(set(ready_ids) | set(unextracted_ready_ids))
+
 
         current_stage = "dbt"
         with SessionLocal() as session:
@@ -194,7 +235,7 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
                 skill_res = extract_skills_for_job_postings(
                     session=session,
                     job_posting_raw_ids=ready_ids,
-                    llm_normalizer=GroqLLMNormalizer(),
+                    llm_normalizer=groq_normalizer,
                 )
 
             if skill_res.result != ScrapeResult.SUCCESSFUL:
@@ -207,8 +248,11 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
                         status="failed",
                         error=error,
                     )
-                print_message("error", error)
-                return False
+                return Result(
+                    ScrapeResult.FAILED,
+                    content = None,
+                    error = skill_res.error
+                )
 
         with SessionLocal() as session:
             update_process_run(
@@ -219,9 +263,9 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
                 error=None,
             )
 
-        print_message("normalization_process_run_id", str(process_run_id))
-        print_message("status", "successful")
-        return True
+        return Result(
+            ScrapeResult.SUCCESSFUL
+        )
 
     except subprocess.CalledProcessError as e:
         error = f"dbt failed with exit code {e.returncode}"
@@ -234,8 +278,11 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
                     status="failed",
                     error=error,
                 )
-        print_message("error", error)
-        return False
+        return Result(
+            ScrapeResult.FAILED,
+            content=None,
+            error=error
+        )
 
     except Exception as e:
         error = str(e)
@@ -248,8 +295,12 @@ def process_scrape_batch(scrape_ids: list[int]) -> bool:
                     status="failed",
                     error=error,
                 )
-        print_message("error", error)
-        return False
+        return Result(
+            ScrapeResult.FAILED,
+            content=None,
+            error=error
+        )
+
 
 with SessionLocal() as session:
     scrape_ids_to_process = fetch_scrape_ids_to_process(session)
@@ -258,12 +309,31 @@ if not scrape_ids_to_process:
     print_message("normalization", "No scrape runs to process")
     raise SystemExit(0)
 
-batch_size = NormalizationConfig.BATCH_SIZE.value
+scrape_batch_queue = deque(
+    chunks(scrape_ids_to_process, NormalizationConfig.BATCH_SIZE.value)
+)
 
-for scrape_ids in chunks(scrape_ids_to_process, batch_size):
-    print_message("scrape_ids", str(scrape_ids))
+for api_key in NormalizationConfig.GROQ_API_KEYS.value:
+        
+    while scrape_batch_queue:
+        
+        scrape_ids = scrape_batch_queue[0]
+        print_message("scrape_ids", str(scrape_ids))
 
-    batch_success = process_scrape_batch(scrape_ids)
-    if not batch_success:
-        print_message("normalization", "Stopping because current batch failed")
-        raise SystemExit(1)
+        batch_result = process_scrape_batch(scrape_ids, api_key)
+        if batch_result.result!=ScrapeResult.SUCCESSFUL:
+            print_message("error", batch_result.error)
+            if "Rate limit reached" in batch_result.error:
+                print_message("switching api key")
+                break
+            else:
+                raise SystemExit(1)
+        else:
+            scrape_batch_queue.popleft()
+            
+            if not scrape_batch_queue:
+                print_announcement("finish normalization and extraction pipeline")
+                raise SystemExit(0)
+
+print_message("error", "all Groq API keys failed")
+raise SystemExit(1)

@@ -673,9 +673,8 @@ Extract and return the skills now.
 }
 
 class GroqLLMNormalizer:
-    def __init__(self):
-        api_key = NormalizationConfig.GROQ_API_KEY.value
-        self.client = Groq(api_key=api_key) if api_key else Groq()
+    def __init__(self, api_key:str):
+        self.client = Groq(api_key=api_key)
         self.model = NormalizationConfig.LLM.value
         self.max_completion_tokens = NormalizationConfig.MAX_TOKEN.value
 

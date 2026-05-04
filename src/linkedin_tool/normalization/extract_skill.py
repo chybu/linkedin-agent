@@ -127,7 +127,6 @@ def extract_skills_for_job_postings(
     llm_normalizer: GroqLLMNormalizer,
 ) -> Result[list[dict]]:
     print_message("Skill extraction", "start pipeline")
-
     rows = _fetch_unprocessed_descriptions(session, job_posting_raw_ids)
     if not rows:
         print_message("Skill extraction", "no unprocessed descriptions")
