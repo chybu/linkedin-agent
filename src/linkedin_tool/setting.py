@@ -23,13 +23,6 @@ class NormalizationConfig(Enum):
     DOMAINS = ("title", "location", "seniority")
     METHODS = ("map", "fuzzy", "llm")
     LLM = "meta-llama/llama-4-scout-17b-16e-instruct"
-    GROQ_API_KEYS = [
-        "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",
-        "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",
-        "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",
-        "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",
-        "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"
-    ]
     MAX_TOKEN = 8192
     LLM_INTERVAL = 5 # seconds
     EXTRACT_UNEXTRACTED_READY_JOBS = True
