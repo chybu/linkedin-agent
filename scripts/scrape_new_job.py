@@ -4,7 +4,7 @@ from linkedin_tool.db.base import SessionLocal
 from linkedin_tool.db.repository import BronzeRepository
 from linkedin_tool.log import print_message, print_announcement
 
-start, end = 0, 1000
+start, end = 11, 30
 max_no_new = 2
 
 # DONT CHANGE
@@ -23,8 +23,8 @@ for i in range(start, end, step):
         if request_start>end: break
         
         request = JobSearchRequest(
-            # keywords="data engineer intern",
-            geo_id=GeoId.WEST_VIRGINIA,
+            keywords="software engineer intern",
+            geo_id=GeoId.UNITED_STATE,
             start=request_start,
             sort_by=SortBy.MOST_RECENT
         )

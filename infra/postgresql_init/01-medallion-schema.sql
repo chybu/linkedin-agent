@@ -49,6 +49,15 @@ CREATE TABLE IF NOT EXISTS bronze.job_postings_raw (
     scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS bronze.job_description_cleaning (
+    job_posting_raw_id BIGINT PRIMARY KEY,
+    description_raw TEXT,
+    description_cleaned TEXT NOT NULL,
+
+    FOREIGN KEY (job_posting_raw_id)
+        REFERENCES bronze.job_postings_raw(job_posting_raw_id)
+);
+
 CREATE TABLE IF NOT EXISTS bronze.title_normalization_map (
     key_normalized TEXT PRIMARY KEY,
     value_normalized TEXT NOT NULL,
@@ -92,11 +101,18 @@ CREATE TABLE IF NOT EXISTS bronze.normalization_process_runs (
     scrape_run_ids BIGINT[] NOT NULL,
 
     status TEXT NOT NULL CHECK (
+        -- use ScrapeResult enum
         status IN ('running', 'successful', 'failed')
     ),
 
     stage TEXT NOT NULL CHECK (
-        stage IN ('normalization', 'dbt', 'skill_extraction')
+        -- have an enum ProcessStage class in schema.py
+        stage IN (
+            'normalization',
+            'dbt',
+            'description_cleaning',
+            'skill_extraction'
+        )
     ),
 
     error TEXT,
@@ -104,7 +120,6 @@ CREATE TABLE IF NOT EXISTS bronze.normalization_process_runs (
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ
 );
-
 
 CREATE TABLE IF NOT EXISTS silver.dim_skills (
     skill_id BIGSERIAL PRIMARY KEY,
@@ -124,4 +139,3 @@ CREATE TABLE IF NOT EXISTS silver.job_posting_skills (
     FOREIGN KEY (skill_id)
         REFERENCES silver.dim_skills(skill_id)
 );
-

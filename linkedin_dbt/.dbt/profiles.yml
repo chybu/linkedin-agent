@@ -1,0 +1,13 @@
+linkedin_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: user
+      password: password
+      port: 5432
+      dbname: jobsdb
+      schema: "{{ env_var('DBT_SCHEMA', 'public') }}"
+      threads: 4
+# dbt build --project-dir linkedin_dbt --profiles-dir linkedin_dbt/.dbt

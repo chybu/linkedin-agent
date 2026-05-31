@@ -1,5 +1,6 @@
 import json, os, subprocess
 from collections import deque
+from pathlib import Path
 from sqlalchemy import bindparam, text
 
 from linkedin_tool.db.base import SessionLocal
@@ -8,9 +9,14 @@ from linkedin_tool.normalization.extract_skill import extract_skills_for_job_pos
 from linkedin_tool.normalization.llm import GroqLLMNormalizer
 from linkedin_tool.normalization.pipeline import run_normalization_pipeline
 from linkedin_tool.normalization.repository import NormalizationRepository
+from linkedin_tool.normalization.clean_description import clean_descriptions_for_job_postings
 from linkedin_tool.schema import ScrapeResult, Result
 from linkedin_tool.setting import NormalizationConfig
+from linkedin_tool.schema import ScrapeResult, Result, ProcessStage
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DBT_PROJECT_DIR = REPO_ROOT / "linkedin_dbt"
+DBT_PROFILES_DIR = DBT_PROJECT_DIR / ".dbt"
 
 def chunks(items: list[int], size: int):
     for i in range(0, len(items), size):
@@ -98,8 +104,8 @@ def create_process_run(session, scrape_ids: list[int]) -> int:
 def update_process_run(
     session,
     process_run_id: int,
-    stage: str,
-    status: str = "running",
+    stage: ProcessStage,
+    status: ScrapeResult = ScrapeResult.RUNNING,
     error: str | None = None,
 ) -> None:
     session.execute(
@@ -119,8 +125,8 @@ def update_process_run(
         ),
         {
             "process_run_id": process_run_id,
-            "stage": stage,
-            "status": status,
+            "stage": stage.value,
+            "status": status.value,
             "error": error,
         },
     )
@@ -138,7 +144,9 @@ def run_dbt_for_ready_ids(ready_ids: list[int]) -> None:
                 "dbt",
                 "run",
                 "--project-dir",
-                "linkedin_dbt",
+                str(DBT_PROJECT_DIR),
+                "--profiles-dir",
+                str(DBT_PROFILES_DIR),
                 "--select",
                 "staging_ready_job_postings",
                 "--vars",
@@ -158,7 +166,9 @@ def run_dbt_for_ready_ids(ready_ids: list[int]) -> None:
             "dbt",
             "run",
             "--project-dir",
-            "linkedin_dbt",
+            str(DBT_PROJECT_DIR),
+            "--profiles-dir",
+            str(DBT_PROFILES_DIR),
             "--select",
             "stg_job_postings dim_companies dim_locations dim_titles fact_job_postings",
         ],
@@ -168,7 +178,7 @@ def run_dbt_for_ready_ids(ready_ids: list[int]) -> None:
 
 def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
     process_run_id: int | None = None
-    current_stage = "normalization"
+    current_stage = ProcessStage.NORMALIZATION
     groq_normalizer =  GroqLLMNormalizer(api_key=api_key)
 
     try:
@@ -189,8 +199,8 @@ def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
                 update_process_run(
                     session=session,
                     process_run_id=process_run_id,
-                    stage="normalization",
-                    status="failed",
+                    stage=ProcessStage.NORMALIZATION,
+                    status=ScrapeResult.FAILED,
                     error=error,
                 )
                 
@@ -212,40 +222,69 @@ def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
             ready_ids = sorted(set(ready_ids) | set(unextracted_ready_ids))
 
 
-        current_stage = "dbt"
+        current_stage = ProcessStage.DBT
         with SessionLocal() as session:
             update_process_run(
                 session=session,
                 process_run_id=process_run_id,
-                stage="dbt",
+                stage=ProcessStage.DBT,
             )
 
         run_dbt_for_ready_ids(ready_ids)
 
-        current_stage = "skill_extraction"
-        with SessionLocal() as session:
-            update_process_run(
-                session=session,
-                process_run_id=process_run_id,
-                stage="skill_extraction",
-            )
-
         if ready_ids:
+
+            current_stage = ProcessStage.DESCRIPTION_CLEANING
+            with SessionLocal() as session:
+                update_process_run(
+                    session=session,
+                    process_run_id=process_run_id,
+                    stage=ProcessStage.DESCRIPTION_CLEANING,
+                )
+
+            with SessionLocal() as session:
+                clean_res = clean_descriptions_for_job_postings(
+                    session=session,
+                    job_posting_raw_ids=ready_ids,
+                    llm_normalizer=groq_normalizer,
+                )
+            if clean_res.result != ScrapeResult.SUCCESSFUL:
+                error = clean_res.error
+                update_process_run(
+                    session=session,
+                    process_run_id=process_run_id,
+                    stage=ProcessStage.DESCRIPTION_CLEANING,
+                    status=ScrapeResult.FAILED,
+                    error=error,
+                )
+                return Result(
+                    ScrapeResult.FAILED,
+                    content = None,
+                    error = clean_res.error
+                )
+            
+            current_stage = ProcessStage.SKILL_EXTRACTION
+            with SessionLocal() as session:
+                update_process_run(
+                    session=session,
+                    process_run_id=process_run_id,
+                    stage=ProcessStage.SKILL_EXTRACTION
+                ) 
+                
             with SessionLocal() as session:
                 skill_res = extract_skills_for_job_postings(
                     session=session,
                     job_posting_raw_ids=ready_ids,
                     llm_normalizer=groq_normalizer,
                 )
-
             if skill_res.result != ScrapeResult.SUCCESSFUL:
                 error = skill_res.error or "skill extraction failed"
                 with SessionLocal() as session:
                     update_process_run(
                         session=session,
                         process_run_id=process_run_id,
-                        stage="skill_extraction",
-                        status="failed",
+                        stage=ProcessStage.SKILL_EXTRACTION,
+                        status=ScrapeResult.FAILED,
                         error=error,
                     )
                 return Result(
@@ -258,8 +297,8 @@ def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
             update_process_run(
                 session=session,
                 process_run_id=process_run_id,
-                stage="skill_extraction",
-                status="successful",
+                stage=ProcessStage.SKILL_EXTRACTION,
+                status=ScrapeResult.SUCCESSFUL,
                 error=None,
             )
 
@@ -274,8 +313,8 @@ def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
                 update_process_run(
                     session=session,
                     process_run_id=process_run_id,
-                    stage="dbt",
-                    status="failed",
+                    stage=ProcessStage.DBT,
+                    status=ScrapeResult.FAILED,
                     error=error,
                 )
         return Result(
@@ -292,7 +331,7 @@ def process_scrape_batch(scrape_ids: list[int], api_key:str) -> Result:
                     session=session,
                     process_run_id=process_run_id,
                     stage=current_stage,
-                    status="failed",
+                    status=ScrapeResult.FAILED,
                     error=error,
                 )
         return Result(

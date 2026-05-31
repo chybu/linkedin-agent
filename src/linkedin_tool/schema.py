@@ -51,6 +51,12 @@ class ScrapeResult(Enum):
     RETRY = "retry"
     RUNNING = "running"
 
+class ProcessStage(Enum):
+    NORMALIZATION = "normalization"
+    DBT = "dbt"
+    DESCRIPTION_CLEANING = "description_cleaning"
+    SKILL_EXTRACTION = "skill_extraction"
+
 @dataclass(frozen=True, slots=True)
 class JobSearchRequest:
     geo_id: GeoId | None = None

@@ -12,9 +12,10 @@ dependencies = [
     "sqlalchemy",
     "psycopg[binary]",
     "lxml==6.0.2",
-    "dbt-core=1.11.8",
-    "dbt-postgres=1.10.0",
-    "groq=1.2.0"
+    "dbt-core==1.11.8",
+    "dbt-postgres==1.10.0",
+    "groq==1.2.0",
+    "markitdown[pdf]==0.1.5"
 ]
 
 [tool.setuptools.packages.find]

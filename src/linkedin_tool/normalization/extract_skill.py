@@ -7,10 +7,9 @@ from linkedin_tool.schema import Result, ScrapeResult
 from linkedin_tool.setting import NormalizationConfig
 from time import sleep
 
-
-FACT_JOB_POSTINGS_TABLE = "silver.fact_job_postings"
 DIM_SKILLS_TABLE = "silver.dim_skills"
 JOB_POSTING_SKILL_TABLE = "silver.job_posting_skills"
+JOB_DESCRIPTION_CLEANING_TABLE = "bronze.job_description_cleaning"
 
 def _chunks(items: list[dict], size: int):
     for i in range(0, len(items), size):
@@ -19,28 +18,25 @@ def _chunks(items: list[dict], size: int):
 def _normalize_skill_key(skill: str) -> str:
     return " ".join((skill or "").strip().lower().split())
 
-def _fetch_unprocessed_descriptions(
+def _fetch_unprocessed_job_posting_raw_ids(
     session: Session,
     job_posting_raw_ids: list[int],
-) -> list[dict]:
+) -> list[int]:
     if not job_posting_raw_ids:
         return []
 
     stmt = (
         text(
             f"""
-            select
-                f.job_posting_raw_id,
-                f.description
-            from {FACT_JOB_POSTINGS_TABLE} f
-            where f.job_posting_raw_id in :job_posting_raw_ids
-              and nullif(trim(coalesce(f.description, '')), '') is not null
+            select c.job_posting_raw_id
+            from {JOB_DESCRIPTION_CLEANING_TABLE} c
+            where c.job_posting_raw_id in :job_posting_raw_ids
               and not exists (
                   select 1
                   from {JOB_POSTING_SKILL_TABLE} js
-                  where js.job_posting_raw_id = f.job_posting_raw_id
+                  where js.job_posting_raw_id = c.job_posting_raw_id
               )
-            order by f.job_posting_raw_id
+            order by c.job_posting_raw_id
             """
         ).bindparams(bindparam("job_posting_raw_ids", expanding=True))
     )
@@ -48,9 +44,53 @@ def _fetch_unprocessed_descriptions(
     rows = session.execute(
         stmt,
         {"job_posting_raw_ids": job_posting_raw_ids},
+    ).scalars().all()
+
+    return list(rows)
+
+def _fetch_unprocessed_descriptions(
+    session: Session,
+    job_posting_raw_ids: list[int],
+) -> list[dict]:
+    unprocessed_ids = _fetch_unprocessed_job_posting_raw_ids(
+        session=session,
+        job_posting_raw_ids=job_posting_raw_ids,
+    )
+
+    if not unprocessed_ids:
+        return []
+
+    stmt = (
+        text(
+            f"""
+            select
+                c.job_posting_raw_id,
+                c.description_cleaned as description
+            from {JOB_DESCRIPTION_CLEANING_TABLE} c
+            where c.job_posting_raw_id in :job_posting_raw_ids
+              and nullif(trim(coalesce(c.description_cleaned, '')), '') is not null
+            order by c.job_posting_raw_id
+            """
+        ).bindparams(bindparam("job_posting_raw_ids", expanding=True))
+    )
+
+    rows = session.execute(
+        stmt,
+        {"job_posting_raw_ids": unprocessed_ids},
     ).mappings().all()
 
-    return [dict(row) for row in rows]
+    descriptions = [dict(row) for row in rows]
+    cleaned_ids = {row["job_posting_raw_id"] for row in descriptions}
+    missing_cleaned_ids = sorted(set(unprocessed_ids) - cleaned_ids)
+
+    # can only extract if the clean description exists
+    if missing_cleaned_ids:
+        raise RuntimeError(
+            "missing cleaned job descriptions for "
+            f"job_posting_raw_ids={missing_cleaned_ids}"
+        )
+
+    return descriptions
 
 def _upsert_skill_dim(session: Session, skills: list[str]) -> None:
     rows = [
