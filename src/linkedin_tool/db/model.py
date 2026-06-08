@@ -5,7 +5,7 @@ from datetime import datetime
 from linkedin_tool.db.base import Base
 
 class ScrapeRunModel(Base):
-    __tablename__ = "scrape_runs"
+    __tablename__ = "run_scrapes"
     __table_args__ = {"schema": "bronze"}
 
     scrape_run_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -29,13 +29,13 @@ class ScrapeRunModel(Base):
     jobs_inserted_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 class JobSearchCardRawModel(Base):
-    __tablename__ = "job_search_cards_raw"
+    __tablename__ = "raw_job_search_cards"
     __table_args__ = {"schema": "bronze"}
 
     search_card_raw_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     scrape_run_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("bronze.scrape_runs.scrape_run_id"),
+        ForeignKey("bronze.run_scrapes.scrape_run_id"),
         nullable=False,
     )
     job_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -50,13 +50,13 @@ class JobSearchCardRawModel(Base):
     )
     
 class JobPostingRawModel(Base):
-    __tablename__ = "job_postings_raw"
+    __tablename__ = "raw_job_postings"
     __table_args__ = {"schema": "bronze"}
 
     job_posting_raw_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     scrape_run_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("bronze.scrape_runs.scrape_run_id"),
+        ForeignKey("bronze.run_scrapes.scrape_run_id"),
         nullable=False,
     )
     job_id: Mapped[int] = mapped_column(BigInteger, nullable=False)

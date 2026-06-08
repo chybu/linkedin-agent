@@ -2,8 +2,17 @@ sources:
   - name: bronze
     schema: bronze
     tables:
-      - name: staging_ready_job_postings
-      - name: job_postings_raw
-      - name: title_normalization_map
-      - name: location_normalization_map
-      - name: seniority_normalization_map
+      - name: ctl_ready_job_postings
+      - name: raw_job_postings
+      - name: map_normalized_job_titles
+      - name: map_normalized_locations
+      - name: map_normalized_seniority_levels
+  - name: silver
+    schema: silver
+    tables:
+      - name: bridge_resume_parse_skills
+      - name: fact_resume_job_semantic_scores
+      - name: fact_resume_job_semantic_requirement_matches
+      - name: fact_resume_job_skill_scores
+      - name: fact_resume_job_skill_matches
+      - name: fact_resume_job_complete_scores

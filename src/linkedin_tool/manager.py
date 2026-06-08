@@ -3,10 +3,10 @@ from time import sleep
 
 from linkedin_tool.db.repository import BronzeRepository
 from linkedin_tool.db.model import ScrapeRunModel
-from linkedin_tool.log import print_message
+from log import print_message
 from linkedin_tool.schema import JobSearchRequest, ScrapeResult, ScrapeRuntime, Result
 from linkedin_tool.service import ScrapeService
-from linkedin_tool.setting import Setting
+from config import Setting
 
 class RequestManager:
     def __init__(self, request_queue: deque[JobSearchRequest] | None = None):

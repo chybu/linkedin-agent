@@ -1,7 +1,8 @@
 from groq import Groq, RateLimitError
 from time import sleep
 from linkedin_tool.schema import Result, ScrapeResult
-from linkedin_tool.setting import NormalizationConfig, Setting
+from config import NormalizationConfig, Setting
+from log import print_message
 
 _ALLOWED_SENIORITY = {
     "intern",
@@ -704,67 +705,38 @@ Remove content such as:
 Remove content such as:
 - “Our mission is to…”
 - “We are on a mission to…”
-- “We want to change the way people…”
-- “The ultimate goal is to…”
-- “We believe the future of…”
 
 3. Founder story
 Remove content such as:
 - “Our founders previously worked at…”
 - “The company was started when…”
-- “After years of working in…”
-- “They were tired of manually…”
-- “So, [Company] was born…”
 
 4. Funding news
 Remove content such as:
 - “We recently raised…”
 - “Backed by world-class investors…”
-- “Seed-stage / Series A / venture-backed…”
-- “Funded by top-tier VCs…”
 
 5. Customer logos
 Remove content such as:
 - “We work with companies like…”
 - “Our customers include Lyft, Stripe, Microsoft…”
-- “Trusted by leading brands such as…”
-- “Used by Fortune 500 companies…”
 
 6. Perks and benefits
 Remove content such as:
 - “What You Get”
 - “Benefits”
 - “Compensation and Benefits”
-- “Health insurance”
-- “Free lunch”
-- “Unlimited PTO”
-- “Team offsites”
-- “Wellness stipend”
-- “Parental leave”
-- “Learning budget”
-- “Retirement plan”
 
 7. Compensation / equity
 Remove content such as:
 - “Competitive salary”
 - “Expected Compensation”
 - “Significant equity”
-- “Life-changing equity”
-- “Bonus package”
-- “Stock options”
-- “Salary range”
-- “OTE”
-- “Commission”
-- “Performance bonus”
-- “Pay offered may vary…”
 
 8. Career growth promises
 Remove content such as:
 - “Ability to rapidly advance your career”
 - “Grow alongside the company”
-- “Ground-floor opportunity”
-- “High-impact role with huge upside”
-- “Tremendous latitude over strategy”
 
 9. Location / work arrangement details
 Remove all location and work arrangement information, even when written as a requirement.
@@ -773,49 +745,37 @@ Remove content such as:
 - “This is an in-person role”
 - “Remote role”
 - “Hybrid role”
-- “Onsite role”
-- “Based in Santa Barbara, CA”
-- “Candidates must be located in…”
-- “Must be willing to relocate”
-- “Must be available during Pacific Time hours”
-- “Our office is downtown”
-- “Walking distance to restaurants, coffee shops, and the beach”
-- “Beautiful office”
-- “Located in a vibrant neighborhood”
 
 10. Generic hype or motivational language
 Remove content such as:
 - “Do you love to build?”
 - “Are you one of the most ambitious people you know?”
-- “If this sounds exciting, we can’t wait to read your application”
-- “You’ll be right at home here”
-- “We move fast and get stuff done”
-- “Join us on this exciting journey”
 
 11. Repetitive culture statements
 Remove content such as:
 - “Our team is extremely motivated and hard-working”
 - “We are passionate, collaborative, and driven”
-- “We value ownership and excellence”
-- “We are a small but mighty team”
-- “Everyone here wears many hats”
 
 12. Recruiting, application, or program logistics
 Remove non-role-specific application or program logistics such as:
 - “Consider before submitting an application”
 - “This position is expected to start…”
-- “The internship program is for students…”
-- “Recent graduates should apply for…”
-- “International Students…”
-- “Please consult your school…”
-- “The recruiting team is driven by…”
-- “Our year-round program places…”
 
 Your Goal:
 Produce a cleaned version of the job description that contains only job-relevant role information and remains as close to the original text as possible.
 
 Result:
-Return only the cleaned job description.
+Return only the retained job-relevant content as bullet points.
+
+Output rules:
+- Remove all headings and section titles.
+- Convert retained content into bullet points.
+- One bullet per responsibility, requirement, qualification, skill, technology, tool, framework, platform, tech stack item, or candidate expectation.
+- Preserve original wording as much as possible.
+- Do not rewrite, summarize, paraphrase, normalize, or infer content.
+- Split bullets only when multiple independent requirements can stand alone.
+- If splitting would lose context, keep the original bullet intact.
+- Return only bullet points.
 
 Do not include:
 - Any hook like “Here is the cleaned job description:”
@@ -829,21 +789,12 @@ Do not include:
 
 Constraint:
 Follow these rules strictly:
+- Do not include “Here is the cleaned job description:” in the response
 - Do not rewrite the JD.
 - Do not summarize the JD.
-- Do not paraphrase.
-- Do not restructure the JD into new sections.
-- Do not reorder sentences, bullets, or paragraphs.
 - Do not add new headings.
-- Do not add bullet points if the original text was not in bullet points.
 - Keep the original wording, punctuation, capitalization, and formatting as much as possible.
-- Only delete irrelevant content.
-- Remove headings when all content under that heading is removed.
 - Remove empty sections left behind after deletion.
-- If a sentence contains both useful job-related information and irrelevant information, keep only the useful clause when possible.
-- If removing only part of a sentence makes the sentence awkward, unclear, or grammatically broken, remove the full sentence.
-- When unsure whether content is job-relevant, keep it only if it clearly describes responsibilities, qualifications, required experience, technical skills, tech stack, or candidate expectations.
-- Return only the cleaned JD.
 
 Context:
 The input will be a raw job description that may include role information mixed with company marketing, mission statements, founder stories, funding announcements, customer logos, perks, compensation, office details, location requirements, work arrangement details, culture statements, motivational hype, application logistics, and program information. Your task is to remove all non-role-specific content while keeping the remaining job description as close to the original as possible.
@@ -1059,6 +1010,7 @@ Input:
         )
     
     def _call(self, system_prompt: str, user_payload: str) -> str:
+        print_message("llm", f"normalization model={self.model}")
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=[

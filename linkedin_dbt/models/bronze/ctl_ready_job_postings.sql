@@ -21,7 +21,7 @@ mapped as (
         r.scrape_run_id,
         r.job_posting_raw_id,
         now() as ready_at
-    from bronze.job_postings_raw r
+    from bronze.raw_job_postings r
     inner join input_ids i
         on r.job_posting_raw_id = i.job_posting_raw_id
 )

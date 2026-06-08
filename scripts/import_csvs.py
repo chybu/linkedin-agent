@@ -2,7 +2,7 @@ import csv
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
-from linkedin_tool.setting import Setting
+from config import Setting
 
 import psycopg
 from psycopg import sql

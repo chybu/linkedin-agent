@@ -7,7 +7,7 @@ select
     count(distinct f.title_id) as title_count,
     count(distinct f.location_id) as location_count
 from {{ ref('fact_job_postings') }} f
-inner join silver.job_posting_skills jps
+inner join silver.bridge_job_posting_skills jps
     on f.job_posting_raw_id = jps.job_posting_raw_id
 inner join silver.dim_skills ds
     on jps.skill_id = ds.skill_id

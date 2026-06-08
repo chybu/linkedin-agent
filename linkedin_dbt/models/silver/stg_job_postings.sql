@@ -10,7 +10,7 @@ with ready as (
         scrape_run_id,
         job_posting_raw_id
         -- ref to the dbt model, not actual table
-    from {{ source('bronze', 'staging_ready_job_postings') }}
+    from {{ source('bronze', 'ctl_ready_job_postings') }}
 ),
 
 raw as (
@@ -34,7 +34,7 @@ raw as (
         regexp_replace(lower(trim(coalesce(r.title_raw, ''))), '\s+', ' ', 'g') as title_key_norm,
         regexp_replace(lower(trim(coalesce(r.location_raw, ''))), '\s+', ' ', 'g') as location_key_norm,
         regexp_replace(lower(trim(coalesce(r.seniority_level_raw, ''))), '\s+', ' ', 'g') as seniority_key_norm
-    from bronze.job_postings_raw r
+    from bronze.raw_job_postings r
     inner join ready rd
         on r.scrape_run_id = rd.scrape_run_id
        and r.job_posting_raw_id = rd.job_posting_raw_id
@@ -44,14 +44,14 @@ title_map as (
     select
         key_normalized,
         value_normalized as title_normalized
-    from bronze.title_normalization_map
+    from bronze.map_normalized_job_titles
 ),
 
 location_map as (
     select
         key_normalized,
         value_normalized as location_normalized
-    from bronze.location_normalization_map
+    from bronze.map_normalized_locations
 ),
 
 seniority_map as (
@@ -59,7 +59,7 @@ seniority_map as (
         use_title_key,
         source_key,
         value_normalized as seniority_normalized
-    from bronze.seniority_normalization_map
+    from bronze.map_normalized_seniority_levels
 )
 
 select

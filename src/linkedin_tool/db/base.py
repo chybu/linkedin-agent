@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from linkedin_tool.setting import Setting
+from config import Setting
 
 DATABASE_URL = Setting.DATABASE_URL.value
 

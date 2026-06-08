@@ -4,14 +4,14 @@ from pathlib import Path
 from sqlalchemy import bindparam, text
 
 from linkedin_tool.db.base import SessionLocal
-from linkedin_tool.log import print_message, print_announcement
+from log import print_message, print_announcement
 from linkedin_tool.normalization.extract_skill import extract_skills_for_job_postings
 from linkedin_tool.normalization.llm import GroqLLMNormalizer
 from linkedin_tool.normalization.pipeline import run_normalization_pipeline
 from linkedin_tool.normalization.repository import NormalizationRepository
 from linkedin_tool.normalization.clean_description import clean_descriptions_for_job_postings
 from linkedin_tool.schema import ScrapeResult, Result
-from linkedin_tool.setting import NormalizationConfig
+from config import NormalizationConfig
 from linkedin_tool.schema import ScrapeResult, Result, ProcessStage
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -27,16 +27,16 @@ def fetch_scrape_ids_to_process(session) -> list[int]:
         text(
             """
             select sr.scrape_run_id
-            from bronze.scrape_runs sr
+            from bronze.run_scrapes sr
             where sr.status = 'successful'
               and exists (
                   select 1
-                  from bronze.job_postings_raw r
+                  from bronze.raw_job_postings r
                   where r.scrape_run_id = sr.scrape_run_id
               )
               and not exists (
                   select 1
-                  from bronze.normalization_process_runs npr
+                  from bronze.run_normalization_processes npr
                   where npr.status = 'successful'
                     and sr.scrape_run_id = any(npr.scrape_run_ids)
               )
@@ -58,14 +58,14 @@ def fetch_unextracted_ready_job_posting_raw_ids(
         text(
             """
             select distinct r.job_posting_raw_id
-            from bronze.job_postings_raw r
-            inner join bronze.staging_ready_job_postings sr
+            from bronze.raw_job_postings r
+            inner join bronze.ctl_ready_job_postings sr
                 on sr.scrape_run_id = r.scrape_run_id
                and sr.job_posting_raw_id = r.job_posting_raw_id
             where r.scrape_run_id in :scrape_ids
               and not exists (
                   select 1
-                  from silver.job_posting_skills js
+                  from silver.bridge_job_posting_skills js
                   where js.job_posting_raw_id = r.job_posting_raw_id
               )
             order by r.job_posting_raw_id
@@ -80,7 +80,7 @@ def create_process_run(session, scrape_ids: list[int]) -> int:
     process_run_id = session.execute(
         text(
             """
-            insert into bronze.normalization_process_runs (
+            insert into bronze.run_normalization_processes (
                 scrape_run_ids,
                 status,
                 stage,
@@ -111,7 +111,7 @@ def update_process_run(
     session.execute(
         text(
             """
-            update bronze.normalization_process_runs
+            update bronze.run_normalization_processes
             set
                 stage = :stage,
                 status = :status,
@@ -148,7 +148,7 @@ def run_dbt_for_ready_ids(ready_ids: list[int]) -> None:
                 "--profiles-dir",
                 str(DBT_PROFILES_DIR),
                 "--select",
-                "staging_ready_job_postings",
+                "ctl_ready_job_postings",
                 "--vars",
                 vars_payload,
             ],

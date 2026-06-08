@@ -1,11 +1,11 @@
 from linkedin_tool.client import LinkedinClient
 from linkedin_tool.parser import LinkedinParser
 from linkedin_tool.schema import JobSearchRequest, ScrapeRuntime, ScrapeResult, Result
-from linkedin_tool.setting import Setting
+from config import Setting
 from time import sleep
 from random import uniform
 from requests import HTTPError, RequestException
-from linkedin_tool.log import print_message
+from log import print_message
 
 class ScrapeService:
     def __init__(self, client:LinkedinClient | None = None, parser:LinkedinParser | None = None):

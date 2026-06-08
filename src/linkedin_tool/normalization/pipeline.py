@@ -2,9 +2,9 @@ from linkedin_tool.normalization.fuzzy import resolve_with_fuzzy_simple, resolve
 from linkedin_tool.normalization.keys import build_posting_key_map
 from linkedin_tool.normalization.repository import NormalizationRepository
 from linkedin_tool.normalization.llm import GroqLLMNormalizer
-from linkedin_tool.setting import NormalizationConfig
+from config import NormalizationConfig
 from linkedin_tool.schema import NormalizationResult, NormalizationSummary, ScrapeResult
-from linkedin_tool.log import print_message
+from log import print_message
 from time import sleep
 
 def _chunks(items: list[str], size: int):

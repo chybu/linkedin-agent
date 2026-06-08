@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from linkedin_tool.setting import NormalizationConfig
+from config import NormalizationConfig
 from typing import Generic, TypeVar
 
 T = TypeVar("T")

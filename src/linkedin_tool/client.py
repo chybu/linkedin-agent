@@ -3,7 +3,7 @@ import time
 
 from requests import Session
 from linkedin_tool.schema import JobSearchRequest, GeoId
-from linkedin_tool.setting import Setting
+from config import Setting
 
 class LinkedinClient:
             

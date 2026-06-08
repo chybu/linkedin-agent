@@ -2,13 +2,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import bindparam, text
 
 MAP_TABLE_BY_DOMAIN = {
-    "title": "bronze.title_normalization_map",
-    "location": "bronze.location_normalization_map",
-    "seniority": "bronze.seniority_normalization_map",
+    "title": "bronze.map_normalized_job_titles",
+    "location": "bronze.map_normalized_locations",
+    "seniority": "bronze.map_normalized_seniority_levels",
 }
 
-staging_ready_job_postings_table = 'bronze.staging_ready_job_postings'
-raw_job_posting_table = 'bronze.job_postings_raw'
+ctl_ready_job_postings_table = 'bronze.ctl_ready_job_postings'
+raw_job_posting_table = 'bronze.raw_job_postings'
 
 class NormalizationRepository:
     def __init__(self, session: Session):
@@ -23,9 +23,9 @@ class NormalizationRepository:
         if not scrape_run_ids:
             return []
         
-        staging_ready_exists = self._staging_ready_job_postings_exists()
+        ctl_ready_exists = self._ctl_ready_job_postings_exists()
         
-        if staging_ready_exists:
+        if ctl_ready_exists:
             stmt = (
                 text(
                     f"""
@@ -38,7 +38,7 @@ class NormalizationRepository:
                     where r.scrape_run_id in :run_ids
                     and not exists (
                         select 1
-                        from {staging_ready_job_postings_table} s
+                        from {ctl_ready_job_postings_table} s
                         where s.job_posting_raw_id = r.job_posting_raw_id
                     )
                     """
@@ -169,14 +169,14 @@ class NormalizationRepository:
         self.session.execute(stmt, rows)
         self.session.commit()
     
-    def _staging_ready_job_postings_exists(self) -> bool:
+    def _ctl_ready_job_postings_exists(self) -> bool:
         # to_regclass('schema.table'): This is a PostgreSQL function that looks up a table by name.
         # If the table exists, it returns the table's internal ID (OID).
         # If the table does not exist, it returns NULL (unlike other methods that might throw an error).
         
         exists = self.session.execute(
             text("SELECT to_regclass(:table_path) IS NOT NULL"),
-            {"table_path": staging_ready_job_postings_table}
+            {"table_path": ctl_ready_job_postings_table}
         ).scalar_one()
         
         return exists

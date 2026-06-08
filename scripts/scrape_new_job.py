@@ -2,9 +2,9 @@ from linkedin_tool.manager import RequestManager
 from linkedin_tool.schema import JobSearchRequest, GeoId, SortBy, ScrapeResult
 from linkedin_tool.db.base import SessionLocal
 from linkedin_tool.db.repository import BronzeRepository
-from linkedin_tool.log import print_message, print_announcement
+from log import print_message, print_announcement
 
-start, end = 11, 30
+start, end = 0, 10
 max_no_new = 2
 
 # DONT CHANGE

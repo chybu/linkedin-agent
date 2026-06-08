@@ -3,7 +3,7 @@ from pathlib import Path
 import tomllib
 
 def get_api_keys() -> list[str]:
-    ROOT_DIR = Path(__file__).resolve().parents[2]
+    ROOT_DIR = Path(__file__).resolve().parents[1]
     SECRETS_FILE = ROOT_DIR / ".secrets.toml"
 
     with SECRETS_FILE.open("rb") as f:
@@ -36,5 +36,20 @@ class NormalizationConfig(Enum):
     LLM = "meta-llama/llama-4-scout-17b-16e-instruct"
     MAX_TOKEN = 8192
     LLM_INTERVAL = 5 # seconds
-    EXTRACT_UNEXTRACTED_READY_JOBS = True
     GROQ_API_KEYS = get_api_keys()
+
+    EXTRACT_UNEXTRACTED_READY_JOBS = True
+
+class GroqProxyConfig(Enum):
+    BASE_URL = "https://api.groq.com/openai/v1"
+    KEY_COOLDOWN_SECONDS = 60
+    API_KEYS = get_api_keys()
+
+class ResumeConfig(Enum):
+    # EMBED_MODEL = "nomic-embed-text"
+    EMBED_MODEL = "mxbai-embed-large"
+    # minimum valid score for semantic scoring 
+    MIN_MATCH_SCORE = 0.6
+    SKILL_FUZZY_MATCH_THRESHOLD = 0.90
+    COMPLETE_SCORE_SEMANTIC_WEIGHT = 0.70
+    COMPLETE_SCORE_SKILL_WEIGHT = 0.30

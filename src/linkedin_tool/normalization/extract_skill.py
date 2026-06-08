@@ -1,15 +1,15 @@
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
-from linkedin_tool.log import print_message
+from log import print_message
 from linkedin_tool.normalization.llm import GroqLLMNormalizer
 from linkedin_tool.schema import Result, ScrapeResult
-from linkedin_tool.setting import NormalizationConfig
+from config import NormalizationConfig
 from time import sleep
 
 DIM_SKILLS_TABLE = "silver.dim_skills"
-JOB_POSTING_SKILL_TABLE = "silver.job_posting_skills"
-JOB_DESCRIPTION_CLEANING_TABLE = "bronze.job_description_cleaning"
+BRIDGE_JOB_POSTING_SKILL_TABLE = "silver.bridge_job_posting_skills"
+JOB_DESCRIPTION_CLEANING_TABLE = "bronze.map_job_description_cleaning"
 
 def _chunks(items: list[dict], size: int):
     for i in range(0, len(items), size):
@@ -33,7 +33,7 @@ def _fetch_unprocessed_job_posting_raw_ids(
             where c.job_posting_raw_id in :job_posting_raw_ids
               and not exists (
                   select 1
-                  from {JOB_POSTING_SKILL_TABLE} js
+                  from {BRIDGE_JOB_POSTING_SKILL_TABLE} js
                   where js.job_posting_raw_id = c.job_posting_raw_id
               )
             order by c.job_posting_raw_id
@@ -141,13 +141,13 @@ def _fetch_skill_ids(session: Session, skills: list[str]) -> dict[str, int]:
 
     return {skill_name: skill_id for skill_id, skill_name in rows}
 
-def _upsert_job_posting_skills(session: Session, rows_to_upsert: list[dict]) -> None:
+def _upsert_bridge_job_posting_skills(session: Session, rows_to_upsert: list[dict]) -> None:
     if not rows_to_upsert:
         return
 
     stmt = text(
         f"""
-        insert into {JOB_POSTING_SKILL_TABLE} (
+        insert into {BRIDGE_JOB_POSTING_SKILL_TABLE} (
             job_posting_raw_id,
             skill_id
         )
@@ -229,7 +229,7 @@ def extract_skills_for_job_postings(
                 }
             )
 
-        _upsert_job_posting_skills(session, rows_to_upsert)
+        _upsert_bridge_job_posting_skills(session, rows_to_upsert)
         session.commit()
         inserted_rows.extend(rows_to_upsert)
 
