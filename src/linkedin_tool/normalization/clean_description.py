@@ -117,7 +117,7 @@ def clean_descriptions_for_job_postings(
                     ),
                 )
 
-            description_cleaned = clean_res.content or ""
+            description_cleaned = "\n".join(clean_res.content or [])
 
             rows_to_upsert.append(
                 {

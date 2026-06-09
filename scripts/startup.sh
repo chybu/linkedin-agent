@@ -77,7 +77,14 @@ fi
 wait_for_command "Docker" "docker info" 180
 
 echo "Starting Docker Compose services..."
-docker compose up -d --build
+GROQ_PROXY_IMAGE="linkedin_groq_proxy:local"
+
+if docker image inspect "$GROQ_PROXY_IMAGE" >/dev/null 2>&1; then
+  docker compose up -d
+else
+  echo "Building missing image: ${GROQ_PROXY_IMAGE}"
+  docker compose up -d --build
+fi
 
 if ! command -v ollama >/dev/null 2>&1; then
   echo "Ollama CLI was not found. Install Ollama, then run this script again." >&2

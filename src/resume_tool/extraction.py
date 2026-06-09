@@ -9,7 +9,6 @@ from linkedin_tool.schema import Result, ScrapeResult
 from log import print_announcement, print_message
 from resume_tool.llm import GroqResumeExtractor
 from resume_tool.schema import ResumeEvidenceResult
-from resume_tool.semantic_similarity_calculator import parse_bullet_text
 
 RAW_RESUME_PARSES_TABLE = "bronze.raw_resume_parses"
 
@@ -95,8 +94,11 @@ def extract_and_store_resume_evidence(
                 error=evidence_res.error,
             )
 
-        resume_evidence = evidence_res.content or ""
-        resume_bullets = parse_bullet_text(resume_evidence)
+        resume_bullets = [
+            " ".join(item.strip().split())
+            for item in (evidence_res.content or [])
+            if item.strip()
+        ]
         if not resume_bullets:
             print_message("resume extraction", "failed")
             return Result(

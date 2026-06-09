@@ -1,8 +1,32 @@
-from groq import Groq, RateLimitError
+import json
 from time import sleep
+from typing import TypeVar
+
+from groq import RateLimitError
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_groq import ChatGroq
+from pydantic import BaseModel, Field
+
 from linkedin_tool.schema import Result, ScrapeResult
 from config import NormalizationConfig, Setting
 from log import print_message
+
+StructuredOutput = TypeVar("StructuredOutput", bound=BaseModel)
+
+
+class NormalizedValues(BaseModel):
+    values: list[str] = Field(
+        description="One normalized output value for each input item, preserving input order."
+    )
+
+
+class SkillValues(BaseModel):
+    skills: list[str] = Field(description="Normalized job skills.")
+
+
+class CleanedDescriptionValues(BaseModel):
+    items: list[str] = Field(description="Retained role-relevant job description items.")
+
 
 _ALLOWED_SENIORITY = {
     "intern",
@@ -27,7 +51,7 @@ Normalize every input location into exactly one standardized location.
 ---
 
 ## Input Parsing Rules
-1. The input list is separated ONLY by semicolons (`;`).
+1. The input list is separated ONLY by semicolons (;).
 2. Commas are part of a single location value and must NOT be treated as item separators.
 3. Return exactly one output for each semicolon-separated input item.
 4. If there is no semicolon, treat the entire input as ONE location.
@@ -48,86 +72,87 @@ Normalize every input location into exactly one standardized location.
 
 ## Format Rules
 1. For every input, output exactly one normalized location.
-2. If the location is in the United States, output:  
-   **City, [2-letter state abbreviation]**  
-   Example: `San Francisco, CA`
-3. If the input is a valid US state, output:  
-   **State Name, United States**  
-   Example: `West Virginia, United States`
-4. If the location is outside the United States, output:  
-   **City, Country**  
-   Example: `Paris, France`
-5. If the input does not contain a real or recognizable location, output:  
-   **Unknown**
+2. If the location is in the United States, output:
+   City, [2-letter state abbreviation]
+   Example: San Francisco, CA
+3. If the input is a valid US state, output:
+   State Name, United States
+   Example: West Virginia, United States
+4. If the location is outside the United States, output:
+   City, Country
+   Example: Paris, France
+5. If the input does not contain a real or recognizable location, output:
+   Unknown
 6. Ensure the number of outputs exactly matches the number of input items.
 7. Preserve input order.
 8. Do not deduplicate.
 
 ---
 
-## Output Rules
-1. Output ONLY a semicolon-separated list of normalized locations.
-2. Use `;` as the delimiter.
-3. Do not add spaces before or after semicolons.
-4. Do not include a trailing semicolon.
-5. Do not include any extra text, explanations, or formatting.
+## Structured Output Rules
+Return a JSON object that matches the provided schema.
+
+- The number of normalized locations must exactly match the number of input items.
+- Preserve input order.
+- Do not include explanations.
+- Do not include reasoning.
+- Do not omit entries.
+- Every input item must produce exactly one normalized location.
 
 ---
 
 ## Few-shot Examples
 
-**Input:**  
-New York;NYC;New York City;Manhattan NY;10001 New York  
+Input:
+New York;NYC;New York City;Manhattan NY;10001 New York
 
-**Output:**  
-New York, NY;New York, NY;New York, NY;New York, NY;New York, NY  
-
----
-
-**Input:**  
-London;London UK;London England;Greater London  
-
-**Output:**  
-London, United Kingdom;London, United Kingdom;London, United Kingdom;London, United Kingdom  
+Output:
+{"values":["New York, NY","New York, NY","New York, NY","New York, NY","New York, NY"]}
 
 ---
 
-**Input:**  
-Toronto;Toronto ON;Toronto Ontario;Toronto Canada  
+Input:
+London;London UK;London England;Greater London
 
-**Output:**  
-Toronto, Canada;Toronto, Canada;Toronto, Canada;Toronto, Canada  
-
----
-
-**Input:**  
-Location, WV  
-
-**Output:**  
-Unknown  
+Output:
+{"values":["London, United Kingdom","London, United Kingdom","London, United Kingdom","London, United Kingdom"]}
 
 ---
 
-**Input:**  
-Location, WV;location wv;Remote;Multiple Locations;TBD;N/A  
+Input:
+Toronto;Toronto ON;Toronto Ontario;Toronto Canada
 
-**Output:**  
-Unknown;Unknown;Unknown;Unknown;Unknown;Unknown  
-
----
-
-**Input:**  
-Charleston, WV;Morgantown WV;Buckhannon, West Virginia  
-
-**Output:**  
-Charleston, WV;Morgantown, WV;Buckhannon, WV  
+Output:
+{"values":["Toronto, Canada","Toronto, Canada","Toronto, Canada","Toronto, Canada"]}
 
 ---
 
-**Input:**  
-{locations}  
+Input:
+Location, WV
 
-**Output:**
+Output:
+{"values":["Unknown"]}
+
+---
+
+Input:
+Location, WV;location wv;Remote;Multiple Locations;TBD;N/A
+
+Output:
+{"values":["Unknown","Unknown","Unknown","Unknown","Unknown","Unknown"]}
+
+---
+
+Input:
+Charleston, WV;Morgantown WV;Buckhannon, West Virginia
+
+Output:
+{"values":["Charleston, WV","Morgantown, WV","Buckhannon, WV"]}
+
+---
+
+Input:
+{locations}
 """,
     "title": 
 """
@@ -140,7 +165,7 @@ Normalize each input job title into exactly one official SOC Detailed Occupation
 ---
 
 ## Input Parsing Rules
-1. The input list is separated ONLY by semicolons (`;`).
+1. The input list is separated ONLY by semicolons (;).
 2. Commas are part of a single job title and must NOT be treated as separators.
 3. Return exactly one output for each semicolon-separated input item.
 4. If there is no semicolon, treat the entire input as ONE job title.
@@ -149,10 +174,10 @@ Normalize each input job title into exactly one official SOC Detailed Occupation
 ---
 
 ## Normalization Rules
-1. Map each title to the closest **official SOC Detailed Occupation name (plural form)**.
-2. Output MUST match standard SOC naming exactly (no paraphrasing or variants).
+1. Map each title to the closest official SOC Detailed Occupation name (plural form).
+2. Output MUST match standard SOC naming exactly (no paraphrasing, synonyms, variants, or invented occupation names).
 3. Consolidate equivalent roles into the same SOC title (e.g., "Software Engineer" → "Software Developers").
-4. Remove seniority indicators (e.g., Senior, Junior, Lead, Principal, Staff, Intern, I, II, III, VP, Director), **unless they define a distinct SOC occupation** (e.g., "Marketing Managers" must remain distinct).
+4. Remove seniority indicators (e.g., Senior, Junior, Lead, Principal, Staff, Intern, I, II, III, VP, Director), unless they define a distinct SOC occupation (e.g., "Marketing Managers" must remain distinct).
 5. Expand common abbreviations (e.g., "RN" → "Registered Nurses").
 6. Remove non-title content:
    - Locations
@@ -162,10 +187,14 @@ Normalize each input job title into exactly one official SOC Detailed Occupation
    - Job IDs, requisition numbers, or codes
    - Special characters or noise
 7. For ambiguous or broad titles (e.g., "Analyst", "Consultant"):
-   - Choose the closest widely recognized SOC occupation if reasonable
-   - Otherwise output: **Unknown**
-8. If no valid SOC occupation can be confidently determined, output: **Unknown**
-9. Treat non-job-title inputs (e.g., recruiting messages, generic phrases, calls to action) as **Unknown**.
+   - Choose the closest widely recognized SOC occupation if reasonable.
+   - Otherwise output: Unknown.
+8. If no valid SOC occupation can be confidently determined, output: Unknown.
+9. Treat non-job-title inputs (e.g., recruiting messages, generic phrases, calls to action) as Unknown.
+10. Only use official SOC Detailed Occupation titles.
+11. Do not invent occupation names.
+12. If no official SOC Detailed Occupation can be confidently matched, output: Unknown.
+13. When uncertain between multiple SOC occupations, prefer Unknown over guessing.
 
 ---
 
@@ -177,103 +206,150 @@ Normalize each input job title into exactly one official SOC Detailed Occupation
 
 ---
 
-## Output Rules
-1. Output ONLY a semicolon-separated list.
-2. Use `;` as the delimiter.
-3. Do not add spaces before or after semicolons.
-4. Do not include a trailing semicolon.
-5. Do not include explanations or extra text.
+## Structured Output Rules
+Return a JSON object matching the provided schema.
+
+Requirements:
+1. Return exactly one normalized SOC occupation for each input item.
+2. Preserve input order.
+3. Do not deduplicate.
+4. Do not omit entries.
+5. Do not include explanations, reasoning, confidence scores, or additional fields.
+6. Every output value must be either:
+   - an official SOC Detailed Occupation title (plural form), or
+   - "Unknown".
 
 ---
 
 ## Few-shot Examples
 
-**Input:**  
-Accountant, Finance Department  
+Input:
+Accountant, Finance Department
 
-**Output:**  
-Accountants and Auditors  
-
----
-
-**Input:**  
-Software Developer;Software Engineer;Sr. Software Engineer;Junior Software Dev;Backend Engineer  
-
-**Output:**  
-Software Developers;Software Developers;Software Developers;Software Developers;Software Developers  
+Output:
+{"values":[
+  "Accountants and Auditors"
+]}
 
 ---
 
-**Input:**  
-Data Scientist;Sr Data Scientist;Machine Learning Scientist;Applied Scientist - ML  
+Input:
+Software Developer;Software Engineer;Sr. Software Engineer;Junior Software Dev;Backend Engineer
 
-**Output:**  
-Data Scientists;Data Scientists;Data Scientists;Data Scientists  
-
----
-
-**Input:**  
-Registered Nurse;RN;Staff Nurse;ICU Nurse - Boston  
-
-**Output:**  
-Registered Nurses;Registered Nurses;Registered Nurses;Registered Nurses  
+Output:
+{"values":[
+  "Software Developers",
+  "Software Developers",
+  "Software Developers",
+  "Software Developers",
+  "Software Developers"
+]}
 
 ---
 
-**Input:**  
-Accountant;Staff Accountant;Senior Accountant;Accounting Analyst  
+Input:
+Data Scientist;Sr Data Scientist;Machine Learning Scientist;Applied Scientist - ML
 
-**Output:**  
-Accountants and Auditors;Accountants and Auditors;Accountants and Auditors;Accountants and Auditors  
-
----
-
-**Input:**  
-HR Specialist;Human Resources Specialist;People Operations Specialist;Talent Specialist  
-
-**Output:**  
-Human Resources Specialists;Human Resources Specialists;Human Resources Specialists;Human Resources Specialists  
+Output:
+{"values":[
+  "Data Scientists",
+  "Data Scientists",
+  "Data Scientists",
+  "Data Scientists"
+]}
 
 ---
 
-**Input:**  
-Marketing Manager;Growth Marketing Manager;Digital Marketing Manager;Sr. Marketing Manager  
+Input:
+Registered Nurse;RN;Staff Nurse;ICU Nurse - Boston
 
-**Output:**  
-Marketing Managers;Marketing Managers;Marketing Managers;Marketing Managers  
+Output:
+{"values":[
+  "Registered Nurses",
+  "Registered Nurses",
+  "Registered Nurses",
+  "Registered Nurses"
+]}
+
+---
+
+Input:
+Accountant;Staff Accountant;Senior Accountant;Accounting Analyst
+
+Output:
+{"values":[
+  "Accountants and Auditors",
+  "Accountants and Auditors",
+  "Accountants and Auditors",
+  "Accountants and Auditors"
+]}
+
+---
+
+Input:
+HR Specialist;Human Resources Specialist;People Operations Specialist;Talent Specialist
+
+Output:
+{"values":[
+  "Human Resources Specialists",
+  "Human Resources Specialists",
+  "Human Resources Specialists",
+  "Human Resources Specialists"
+]}
+
+---
+
+Input:
+Marketing Manager;Growth Marketing Manager;Digital Marketing Manager;Sr. Marketing Manager
+
+Output:
+{"values":[
+  "Marketing Managers",
+  "Marketing Managers",
+  "Marketing Managers",
+  "Marketing Managers"
+]}
 
 ---
 
 ## Fallback Examples (Invalid Titles)
 
-**Input:**  
-Don't See A Career Match? Submit Your Resume for Future Opportunities!  
+Input:
+Don't See A Career Match? Submit Your Resume for Future Opportunities!
 
-**Output:**  
-Unknown  
-
----
-
-**Input:**  
-Looking for New Opportunities;Open to Work;Actively Seeking Roles  
-
-**Output:**  
-Unknown;Unknown;Unknown  
+Output:
+{"values":[
+  "Unknown"
+]}
 
 ---
 
-**Input:**  
-Various Roles;Multiple Positions;TBD  
+Input:
+Looking for New Opportunities;Open to Work;Actively Seeking Roles
 
-**Output:**  
-Unknown;Unknown;Unknown  
+Output:
+{"values":[
+  "Unknown",
+  "Unknown",
+  "Unknown"
+]}
 
 ---
 
-**Input:**  
-{job_titles}  
+Input:
+Various Roles;Multiple Positions;TBD
 
-**Output:**
+Output:
+{"values":[
+  "Unknown",
+  "Unknown",
+  "Unknown"
+]}
+
+---
+
+Input:
+{job_titles}
 """,
     "seniority_raw": 
 """
@@ -288,15 +364,16 @@ intern;junior;mid;senior;lead;executive;unknown
 ---
 
 ## Input Parsing Rules
-1. The input list is separated ONLY by semicolons (`;`).
+1. The input list is separated ONLY by semicolons (;).
 2. Commas are part of a single value and must NOT be treated as separators.
 3. Return exactly one output for each semicolon-separated input item.
 4. If there is no semicolon, treat the entire input as ONE value.
-5. If multiple seniority indicators appear in one item, select the **highest seniority level**.
+5. If multiple seniority indicators appear in one item, select the highest seniority level.
 
 ---
 
 ## Seniority Definitions
+
 - intern: internships, trainees, students
 - junior: entry-level, associate, early career
 - mid: mid-level, intermediate, level II
@@ -307,6 +384,7 @@ intern;junior;mid;senior;lead;executive;unknown
 ---
 
 ## Normalization Rules
+
 1. Normalize casing, punctuation, and formatting (e.g., "Sr.", "Sr", "SENIOR" → "senior").
 2. Expand common abbreviations (e.g., "Sr" → senior, "Jr" → junior, "VP" → executive).
 3. Ignore non-seniority content such as:
@@ -315,103 +393,178 @@ intern;junior;mid;senior;lead;executive;unknown
    - departments
    - employment types (e.g., remote, contract)
    - job levels (e.g., L1–L10) unless clearly mappable
-4. If multiple indicators exist, choose the highest level using this priority:  
-   **executive > lead > senior > mid > junior > intern**
-5. If no clear seniority signal exists, output: **unknown**
-6. Treat vague or non-seniority phrases (e.g., "open", "various", "not specified", "TBD") as **unknown**
+4. If multiple indicators exist, choose the highest level using this priority:
+
+   executive > lead > senior > mid > junior > intern
+
+5. If no clear seniority signal exists, output: unknown.
+6. Treat vague or non-seniority phrases (e.g., "open", "various", "not specified", "TBD") as unknown.
+7. Output values must be exactly one of:
+
+   - intern
+   - junior
+   - mid
+   - senior
+   - lead
+   - executive
+   - unknown
+
+8. Never invent additional levels.
+9. When uncertain, output unknown.
 
 ---
 
-## Output Rules
-1. Output ONLY a semicolon-separated list.
-2. Use `;` as the delimiter.
-3. Do not add spaces before or after semicolons.
-4. Do not include a trailing semicolon.
-5. Do not include explanations or extra text.
-6. Ensure the number of outputs exactly matches the number of inputs.
-7. Preserve input order.
-8. Do not deduplicate.
+## Format Rules
+
+1. Output exactly one seniority level per input.
+2. Preserve input order.
+3. Do not deduplicate.
+4. Ensure the number of outputs exactly matches the number of inputs.
+
+---
+
+## Structured Output Rules
+
+Return a JSON object matching the provided schema.
+
+Requirements:
+
+1. Return exactly one normalized seniority level for each input item.
+2. Preserve input order.
+3. Do not deduplicate.
+4. Do not omit entries.
+5. Do not include explanations, reasoning, confidence scores, or additional fields.
+6. Every output value must be one of:
+
+   - intern
+   - junior
+   - mid
+   - senior
+   - lead
+   - executive
+   - unknown
 
 ---
 
 ## Few-shot Examples
 
-**Input:**  
-Mid, Senior level  
+Input:
+Mid, Senior level
 
-**Output:**  
-senior  
-
----
-
-**Input:**  
-Entry level  
-
-**Output:**  
-junior  
+Output:
+{"values":[
+  "senior"
+]}
 
 ---
 
-**Input:**  
-Internship;Intern;Trainee;Student  
+Input:
+Entry level
 
-**Output:**  
-intern;intern;intern;intern  
-
----
-
-**Input:**  
-Entry level;Entry-Level;Junior;Associate;Early Career  
-
-**Output:**  
-junior;junior;junior;junior;junior  
+Output:
+{"values":[
+  "junior"
+]}
 
 ---
 
-**Input:**  
-Mid-Senior level;Mid Level;Intermediate;Level II  
+Input:
+Internship;Intern;Trainee;Student
 
-**Output:**  
-senior;mid;mid;mid  
-
----
-
-**Input:**  
-Senior level;Senior;Experienced;Level III  
-
-**Output:**  
-senior;senior;senior;senior  
+Output:
+{"values":[
+  "intern",
+  "intern",
+  "intern",
+  "intern"
+]}
 
 ---
 
-**Input:**  
-Lead;Team Lead;Manager;Principal;Staff  
+Input:
+Entry level;Entry-Level;Junior;Associate;Early Career
 
-**Output:**  
-lead;lead;lead;lead;lead  
-
----
-
-**Input:**  
-Director;Executive;VP;Vice President;C-Level;Founder;Owner  
-
-**Output:**  
-executive;executive;executive;executive;executive;executive;executive  
+Output:
+{"values":[
+  "junior",
+  "junior",
+  "junior",
+  "junior",
+  "junior"
+]}
 
 ---
 
-**Input:**  
-No level specified;Open role;TBD  
+Input:
+Mid-Senior level;Mid Level;Intermediate;Level II
 
-**Output:**  
-unknown;unknown;unknown  
+Output:
+{"values":[
+  "senior",
+  "mid",
+  "mid",
+  "mid"
+]}
 
 ---
 
-**Input:**  
-{seniority_values}  
+Input:
+Senior level;Senior;Experienced;Level III
 
-**Output:**
+Output:
+{"values":[
+  "senior",
+  "senior",
+  "senior",
+  "senior"
+]}
+
+---
+
+Input:
+Lead;Team Lead;Manager;Principal;Staff
+
+Output:
+{"values":[
+  "lead",
+  "lead",
+  "lead",
+  "lead",
+  "lead"
+]}
+
+---
+
+Input:
+Director;Executive;VP;Vice President;C-Level;Founder;Owner
+
+Output:
+{"values":[
+  "executive",
+  "executive",
+  "executive",
+  "executive",
+  "executive",
+  "executive",
+  "executive"
+]}
+
+---
+
+Input:
+No level specified;Open role;TBD
+
+Output:
+{"values":[
+  "unknown",
+  "unknown",
+  "unknown"
+]}
+
+---
+
+Input:
+{seniority_values}
 """,
     "seniority_title": 
 """
@@ -426,7 +579,7 @@ intern;junior;mid;senior;lead;executive;not_applicable;unknown
 ---
 
 ## Input Parsing Rules
-1. The input list is separated ONLY by semicolons (`;`).
+1. The input list is separated ONLY by semicolons (;).
 2. Commas are part of a single value and must NOT be treated as separators.
 3. Return exactly one output for each semicolon-separated input item.
 4. If there is no semicolon, treat the entire input as ONE value.
@@ -456,160 +609,240 @@ intern;junior;mid;senior;lead;executive;not_applicable;unknown
    - general descriptors (e.g., full-time)
 4. Extract years of experience ONLY if explicitly stated (e.g., "2 years", "3+ yrs", "5-7 years").
 5. Map years of experience strictly:
-   - 0–2 → junior  
-   - 3–5 → mid  
-   - 6+ → senior  
+   - 0–2 → junior
+   - 3–5 → mid
+   - 6+ → senior
 6. Do NOT infer experience if not explicitly stated.
+7. Output values must be exactly one of:
+   - intern
+   - junior
+   - mid
+   - senior
+   - lead
+   - executive
+   - not_applicable
+   - unknown
 
 ---
 
 ## Priority Rules (Deterministic)
 1. If explicit seniority keywords exist, they OVERRIDE years of experience.
-2. If multiple seniority keywords exist, choose the highest using this order:  
-   **executive > lead > senior > mid > junior > intern**
+2. If multiple seniority keywords exist, choose the highest using this order:
+
+   executive > lead > senior > mid > junior > intern
+
 3. If both keyword and years exist and conflict, use the keyword.
 4. If multiple numeric ranges exist, use the highest implied level.
-5. If no seniority signal exists but the title is a valid occupation → **not_applicable**
-6. If the input is vague, promotional, or not a real job title → **unknown**
+5. If no seniority signal exists but the title is a valid occupation → not_applicable.
+6. If the input is vague, promotional, or not a real job title → unknown.
+7. When uncertain between not_applicable and unknown:
+   - Use not_applicable if the input is a recognizable job title.
+   - Use unknown if the input is not clearly a job title.
 
 ---
 
 ## Validity Rules
 1. Treat recognizable occupations (e.g., "Engineer", "Nurse", "Driver") as valid.
-2. Treat vague phrases (e.g., "Open Role", "Various Positions", "Looking for Opportunities") as **unknown**.
+2. Treat vague phrases (e.g., "Open Role", "Various Positions", "Looking for Opportunities") as unknown.
 
 ---
 
-## Output Rules
-1. Output ONLY a semicolon-separated list.
-2. Use `;` as delimiter.
-3. Do not include spaces before or after semicolons.
-4. No trailing semicolon.
-5. No explanations.
-6. Ensure exactly one output per input.
-7. Preserve order.
-8. Do not deduplicate.
+## Format Rules
+1. Output exactly one seniority level per input.
+2. Ensure exactly one output per input.
+3. Preserve order.
+4. Do not deduplicate.
+
+---
+
+## Structured Output Rules
+Return a JSON object matching the provided schema.
+
+Requirements:
+1. Return exactly one normalized seniority level for each input item.
+2. Preserve input order.
+3. Do not deduplicate.
+4. Do not omit entries.
+5. Do not include explanations, reasoning, confidence scores, or additional fields.
+6. Every output value must be exactly one of:
+   - intern
+   - junior
+   - mid
+   - senior
+   - lead
+   - executive
+   - not_applicable
+   - unknown
 
 ---
 
 ## Few-shot Examples
 
-**Input:**  
-Python Developer, Full Time (2 years experience)  
+Input:
+Python Developer, Full Time (2 years experience)
 
-**Output:**  
-junior  
-
----
-
-**Input:**  
-Senior Software Engineer, Backend  
-
-**Output:**  
-senior  
+Output:
+{"values":[
+  "junior"
+]}
 
 ---
 
-**Input:**  
-Python Developer Full Time (2 years experience);Data Analyst 1 yr exp;Software Engineer 0-1 years  
+Input:
+Senior Software Engineer, Backend
 
-**Output:**  
-junior;junior;junior  
-
----
-
-**Input:**  
-Backend Developer (3 years experience);Product Manager 4 yrs;Business Analyst 5 years  
-
-**Output:**  
-mid;mid;mid  
+Output:
+{"values":[
+  "senior"
+]}
 
 ---
 
-**Input:**  
-Data Scientist 6+ years;Software Engineer with 7 years experience;Financial Analyst 10 yrs  
+Input:
+Python Developer Full Time (2 years experience);Data Analyst 1 yr exp;Software Engineer 0-1 years
 
-**Output:**  
-senior;senior;senior  
-
----
-
-**Input:**  
-Mid-Level Software Engineer;Intermediate Analyst;Software Engineer II  
-
-**Output:**  
-mid;mid;mid  
+Output:
+{"values":[
+  "junior",
+  "junior",
+  "junior"
+]}
 
 ---
 
-**Input:**  
-Software Engineer;Product Manager;Business Analyst;Draftsman (civil/architect)  
+Input:
+Backend Developer (3 years experience);Product Manager 4 yrs;Business Analyst 5 years
 
-**Output:**  
-not_applicable;not_applicable;not_applicable;not_applicable  
-
----
-
-**Input:**  
-Draftsman (3 years experience);Civil Draftsman 2 yrs;Architectural Draftsman 6+ years  
-
-**Output:**  
-mid;junior;senior  
+Output:
+{"values":[
+  "mid",
+  "mid",
+  "mid"
+]}
 
 ---
 
-**Input:**  
-Senior Software Engineer (2 years experience)  
+Input:
+Data Scientist 6+ years;Software Engineer with 7 years experience;Financial Analyst 10 yrs
 
-**Output:**  
-senior  
-
----
-
-**Input:**  
-Lead/Senior Engineer  
-
-**Output:**  
-lead  
+Output:
+{"values":[
+  "senior",
+  "senior",
+  "senior"
+]}
 
 ---
 
-**Input:**  
-Director of Engineering;VP of Product;Chief Technology Officer  
+Input:
+Mid-Level Software Engineer;Intermediate Analyst;Software Engineer II
 
-**Output:**  
-executive;executive;executive  
-
----
-
-**Input:**  
-Software Engineer Intern;Marketing Intern  
-
-**Output:**  
-intern;intern  
+Output:
+{"values":[
+  "mid",
+  "mid",
+  "mid"
+]}
 
 ---
 
-**Input:**  
-Floorhand;Driver;Warehouse Worker;Operator;Cashier;Word Processor  
+Input:
+Software Engineer;Product Manager;Business Analyst;Draftsman (civil/architect)
 
-**Output:**  
-not_applicable;not_applicable;not_applicable;not_applicable;not_applicable;not_applicable  
-
----
-
-**Input:**  
-Open to Work;Looking for Opportunities;Various Roles  
-
-**Output:**  
-unknown;unknown;unknown  
+Output:
+{"values":[
+  "not_applicable",
+  "not_applicable",
+  "not_applicable",
+  "not_applicable"
+]}
 
 ---
 
-**Input:**  
-{job_titles}  
+Input:
+Draftsman (3 years experience);Civil Draftsman 2 yrs;Architectural Draftsman 6+ years
 
-**Output:**
+Output:
+{"values":[
+  "mid",
+  "junior",
+  "senior"
+]}
+
+---
+
+Input:
+Senior Software Engineer (2 years experience)
+
+Output:
+{"values":[
+  "senior"
+]}
+
+---
+
+Input:
+Lead/Senior Engineer
+
+Output:
+{"values":[
+  "lead"
+]}
+
+---
+
+Input:
+Director of Engineering;VP of Product;Chief Technology Officer
+
+Output:
+{"values":[
+  "executive",
+  "executive",
+  "executive"
+]}
+
+---
+
+Input:
+Software Engineer Intern;Marketing Intern
+
+Output:
+{"values":[
+  "intern",
+  "intern"
+]}
+
+---
+
+Input:
+Floorhand;Driver;Warehouse Worker;Operator;Cashier;Word Processor
+
+Output:
+{"values":[
+  "not_applicable",
+  "not_applicable",
+  "not_applicable",
+  "not_applicable",
+  "not_applicable",
+  "not_applicable"
+]}
+
+---
+
+Input:
+Open to Work;Looking for Opportunities;Various Roles
+
+Output:
+{"values":[
+  "unknown",
+  "unknown",
+  "unknown"
+]}
+
+---
+
+Input:
+{job_titles}
 """,
     "skill":
 """
@@ -630,13 +863,16 @@ Include only skills that are:
 ---
 
 ## Extraction Rules
-1. Extract up to 10 skills (fewer if appropriate).
-2. Do NOT include low-value or generic skills unless strongly emphasized.
-3. Prioritize:
+1. Extract up to 10 skills.
+2. Extract fewer than 10 skills if fewer are appropriate.
+3. Do NOT include low-value or generic skills unless strongly emphasized.
+4. Prioritize:
    - technical skills
    - tools, technologies, frameworks
    - domain-specific expertise
-4. Include soft skills ONLY if clearly emphasized multiple times or critical to the role.
+5. Include soft skills ONLY if clearly emphasized multiple times or critical to the role.
+6. Do not extract company names, locations, benefits, employment types, or generic responsibilities as skills.
+7. If no meaningful skills can be extracted, return an empty list.
 
 ---
 
@@ -648,166 +884,230 @@ Include only skills that are:
    - "Amazon Web Services" → "AWS"
    - "Microsoft Excel" → "Excel"
 3. Avoid redundancy or overlap:
-   - Do NOT include both "SQL" and "Databases" unless clearly distinct in context
+   - Do NOT include both "SQL" and "Databases" unless clearly distinct in context.
+4. Do not duplicate skills.
+5. Use concise skill names, not full sentences.
 
 ---
 
-## Output Rules
-1. Return ONLY a semicolon-separated list.
-2. Use `;` as delimiter.
-3. Do not add spaces before or after semicolons.
-4. Do not include explanations or extra text.
-5. Do not include duplicate or overlapping skills.
+## Structured Output Rules
+Return a JSON object matching the provided schema.
+
+Requirements:
+1. Return a JSON object with a `skills` field containing the extracted skills.
+2. Return at most 10 skills.
+3. Do not include duplicate or overlapping skills.
+4. Do not include explanations, reasoning, confidence scores, or additional fields.
+5. If no skills are found, return an empty `skills` list.
 
 ---
 
-## Example Output
-Python;SQL;AWS;Data Analysis;TensorFlow
+## Example
+
+Job Description:
+We are looking for a Data Scientist with strong Python, SQL, AWS, data analysis, and TensorFlow experience.
+
+Output:
+{"skills":[
+  "Python",
+  "SQL",
+  "AWS",
+  "Data Analysis",
+  "TensorFlow"
+]}
 
 ---
 
 ## Job Description
-[JOB DESCRIPTION]
-
-Extract and return the skills now.
+{job_description}
 """,
     "description":
 """
-Your Role:
-You are a senior job description cleanup assistant. You specialize in removing non-role-specific content from job descriptions while preserving the original job-relevant wording, formatting, and order.
+## Role
 
-Short basic instruction:
-Clean the job description by deleting irrelevant content and keeping only role-specific information.
+You are a senior job description cleanup assistant.
 
-What you should do:
-Review the raw job description and remove any sentence, bullet point, heading, paragraph, or clause that does not directly describe the role, responsibilities, qualifications, required experience, technical skills, tools, tech stack, or candidate expectations related to performing the job.
+You specialize in removing non-role-specific content from job descriptions while preserving the original job-relevant wording, formatting, and meaning.
 
-Keep only content related to:
-- Job title or role
-- Core responsibilities and day-to-day duties
+---
+
+## Task
+
+Review the raw job description and retain only content that is directly relevant to performing the role.
+
+Remove all non-role-specific content.
+
+---
+
+## Keep Only
+
+Retain content that directly describes:
+
+- Job title
+- Core responsibilities
+- Day-to-day duties
 - Required qualifications
-- Preferred qualifications, if job-related
+- Preferred qualifications that are job-related
 - Required years of experience
-- Technical skills, tools, software, platforms, frameworks, programming languages, or tech stack
+- Technical skills
+- Programming languages
+- Tools
+- Frameworks
+- Platforms
+- Software
+- Technologies
+- Certifications
 - Candidate expectations directly tied to job performance
 
-Detailed removal rules:
+---
 
-1. Company intro
-Remove content such as:
-- “Who We Are”
-- “About us”
-- “We are a fast-growing startup…”
-- “Our company was founded to…”
-- “We’re currently a team of 30…”
+## Remove
 
-2. Mission / vision
-Remove content such as:
-- “Our mission is to…”
-- “We are on a mission to…”
+Remove any sentence, bullet point, heading, paragraph, clause, or section containing:
 
-3. Founder story
-Remove content such as:
-- “Our founders previously worked at…”
-- “The company was started when…”
+### Company Information
+- Company introductions
+- About Us sections
+- Company history
+- Founder stories
+- Funding announcements
+- Investor information
+- Customer lists
+- Customer logos
 
-4. Funding news
-Remove content such as:
-- “We recently raised…”
-- “Backed by world-class investors…”
+### Mission & Culture
+- Mission statements
+- Vision statements
+- Values
+- Culture descriptions
+- Team descriptions
+- Generic workplace statements
 
-5. Customer logos
-Remove content such as:
-- “We work with companies like…”
-- “Our customers include Lyft, Stripe, Microsoft…”
+### Recruiting & Logistics
+- Application instructions
+- Recruiting process details
+- Interview process details
+- Start date information
+- Program logistics
+- Hiring timelines
 
-6. Perks and benefits
-Remove content such as:
-- “What You Get”
-- “Benefits”
-- “Compensation and Benefits”
+### Benefits & Compensation
+- Salary information
+- Compensation information
+- Equity information
+- Benefits
+- Perks
+- Wellness programs
+- Career growth promises
 
-7. Compensation / equity
-Remove content such as:
-- “Competitive salary”
-- “Expected Compensation”
-- “Significant equity”
+### Location & Work Arrangement
+Remove all:
+- Remote
+- Hybrid
+- Onsite
+- In-person
+- Relocation
+- Visa sponsorship
+- Office location information
 
-8. Career growth promises
-Remove content such as:
-- “Ability to rapidly advance your career”
-- “Grow alongside the company”
+### Marketing & Promotional Content
+- Motivational language
+- Recruiting slogans
+- Hype statements
+- Generic company marketing
 
-9. Location / work arrangement details
-Remove all location and work arrangement information, even when written as a requirement.
+---
 
-Remove content such as:
-- “This is an in-person role”
-- “Remote role”
-- “Hybrid role”
+## Preservation Rules
 
-10. Generic hype or motivational language
-Remove content such as:
-- “Do you love to build?”
-- “Are you one of the most ambitious people you know?”
+1. Preserve original wording whenever possible.
+2. Preserve original capitalization whenever possible.
+3. Preserve original technical terminology.
+4. Preserve original tool names.
+5. Preserve original technology names.
+6. Do not paraphrase.
+7. Do not summarize.
+8. Do not infer missing information.
+9. Do not rewrite requirements.
+10. Do not merge unrelated requirements.
+11. If a sentence contains both relevant and irrelevant content:
+    - Remove only the irrelevant portion when possible.
+    - Otherwise remove the entire sentence.
 
-11. Repetitive culture statements
-Remove content such as:
-- “Our team is extremely motivated and hard-working”
-- “We are passionate, collaborative, and driven”
+---
 
-12. Recruiting, application, or program logistics
-Remove non-role-specific application or program logistics such as:
-- “Consider before submitting an application”
-- “This position is expected to start…”
+## Splitting Rules
 
-Your Goal:
-Produce a cleaned version of the job description that contains only job-relevant role information and remains as close to the original text as possible.
+1. Each retained item should represent a single responsibility, qualification, skill, requirement, tool, technology, or candidate expectation.
+2. Split compound bullets only when meaning is preserved.
+3. If splitting would lose context, keep the original item intact.
 
-Result:
-Return only the retained job-relevant content as bullet points.
+---
 
-Output rules:
-- Remove all headings and section titles.
-- Convert retained content into bullet points.
-- One bullet per responsibility, requirement, qualification, skill, technology, tool, framework, platform, tech stack item, or candidate expectation.
-- Preserve original wording as much as possible.
-- Do not rewrite, summarize, paraphrase, normalize, or infer content.
-- Split bullets only when multiple independent requirements can stand alone.
-- If splitting would lose context, keep the original bullet intact.
-- Return only bullet points.
+## Structured Output Rules
 
-Do not include:
-- Any hook like “Here is the cleaned job description:”
-- Explanations
-- Notes
-- Comments
-- A summary
-- A list of removed items
-- Labels such as “Cleaned JD”
-- Markdown code fences unless they were present in the original JD
+Return a JSON object matching the provided schema.
 
-Constraint:
-Follow these rules strictly:
-- Do not include “Here is the cleaned job description:” in the response
-- Do not rewrite the JD.
-- Do not summarize the JD.
-- Do not add new headings.
-- Keep the original wording, punctuation, capitalization, and formatting as much as possible.
-- Remove empty sections left behind after deletion.
+Requirements:
 
-Context:
-The input will be a raw job description that may include role information mixed with company marketing, mission statements, founder stories, funding announcements, customer logos, perks, compensation, office details, location requirements, work arrangement details, culture statements, motivational hype, application logistics, and program information. Your task is to remove all non-role-specific content while keeping the remaining job description as close to the original as possible.
+1. Return only retained role-relevant items.
+2. Preserve original wording as much as possible.
+3. Do not include removed content.
+4. Do not include explanations.
+5. Do not include summaries.
+6. Do not include reasoning.
+7. Do not include headings.
+8. Do not include section titles.
+9. Do not include empty items.
+10. Preserve the original order whenever possible.
 
-JD:
+---
+
+## Example
+
+Input:
+
+About Us
+
+We are a fast-growing startup backed by top investors.
+
+Responsibilities
+
+Build backend services using Python and AWS.
+
+Requirements
+
+3+ years of software engineering experience.
+
+Benefits
+
+Competitive salary and equity.
+
+Output:
+
+{"items":[
+  "Build backend services using Python and AWS.",
+  "3+ years of software engineering experience."
+]}
+
+---
+
+## Job Description
+
+{job_description}
 """
 }
 
 class GroqLLMNormalizer:
     def __init__(self, api_key:str):
-        self.client = Groq(api_key=api_key)
         self.model = NormalizationConfig.LLM.value
         self.max_completion_tokens = NormalizationConfig.MAX_TOKEN.value
+        self.llm = ChatGroq(
+            groq_api_key=api_key,
+            model=self.model,
+            temperature=0,
+            max_tokens=self.max_completion_tokens,
+        )
 
     def normalize_batch(self, domain: str, values: list[str]) -> Result:
         if domain not in _PROMPTS:
@@ -825,7 +1125,8 @@ class GroqLLMNormalizer:
             )
         inputs.append("unknown")
 
-        user_payload = ";".join(inputs)
+        original_payload = json.dumps(inputs, ensure_ascii=False)
+        user_payload = f"Input items JSON array:\n{original_payload}"
         last_error: Exception | None = None
 
         for retry in range(Setting.MAX_RETRIES.value + 1):
@@ -834,10 +1135,14 @@ class GroqLLMNormalizer:
                     sleep_seconds = Setting.FAIL_RETRY_PENALTY.value * retry
                     sleep(sleep_seconds)
                 
-                # sometime model can give invalid output. Maybe try again
+                # Sometimes the model can give invalid output. Try again with a stricter repair prompt.
                 for llm_retry in range(Setting.MAX_RETRIES.value+1):
-                    content = self._call(_PROMPTS[domain], user_payload)
-                    parsed = self._parse_semicolon(content)
+                    response = self._call_structured(
+                        _PROMPTS[domain],
+                        user_payload,
+                        NormalizedValues,
+                    )
+                    parsed = response.values
                     if len(parsed) != len(inputs) and llm_retry<Setting.MAX_RETRIES.value:
                         sleep(NormalizationConfig.LLM_INTERVAL.value)
                         user_payload = \
@@ -846,9 +1151,10 @@ The previous output had {len(parsed)} items, but there are {len(inputs)} inputs.
 
 Regenerate the FULL output.
 Ensure the number of outputs EXACTLY matches the number of inputs.
+Return one output for each item in this JSON array, preserving order.
 
-Input:
-{user_payload}
+Input items JSON array:
+{original_payload}
 """
                     else:
                         break
@@ -857,8 +1163,7 @@ Input:
                     raise ValueError(
                         f"LLM parse size mismatch for domain={domain}: "
                         f"expected {len(inputs)}, got {len(parsed)}\n"
-                        f"raw={inputs!r}\n"
-                        f"raw_response={content!r}"
+                        f"raw={inputs!r}"
                     )
                     
                 parsed = parsed[:-1]
@@ -939,8 +1244,12 @@ Input:
                     sleep_seconds = Setting.FAIL_RETRY_PENALTY.value * retry
                     sleep(sleep_seconds)
 
-                content = self._call(_PROMPTS["skill"], description)
-                parsed = self._parse_semicolon(content)
+                response = self._call_structured(
+                    _PROMPTS["skill"],
+                    description,
+                    SkillValues,
+                )
+                parsed = response.skills
 
                 # Preserve order while removing duplicates case-insensitively.
                 seen: set[str] = set()
@@ -973,12 +1282,12 @@ Input:
             error=str(last_error),
         )
 
-    def clean_description(self, description: str) -> Result[str]:
+    def clean_description(self, description: str) -> Result[list[str]]:
         description = self._clean_text(description)
         if not description:
             return Result(
                 result=ScrapeResult.SUCCESSFUL,
-                content="",
+                content=[],
             )
 
         last_error: Exception | None = None
@@ -989,11 +1298,16 @@ Input:
                     sleep_seconds = Setting.FAIL_RETRY_PENALTY.value * retry
                     sleep(sleep_seconds)
 
-                content = self._call(_PROMPTS["description"], description)
+                response = self._call_structured(
+                    _PROMPTS["description"],
+                    description,
+                    CleanedDescriptionValues,
+                )
+                items = [item.strip() for item in response.items if item.strip()]
 
                 return Result(
                     result=ScrapeResult.SUCCESSFUL,
-                    content=content.strip(),
+                    content=items,
                 )
 
             except RateLimitError as e:
@@ -1009,26 +1323,20 @@ Input:
             error=str(last_error),
         )
     
-    def _call(self, system_prompt: str, user_payload: str) -> str:
+    def _call_structured(
+        self,
+        system_prompt: str,
+        user_payload: str,
+        output_schema: type[StructuredOutput],
+    ) -> StructuredOutput:
         print_message("llm", f"normalization model={self.model}")
-        completion = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_payload},
-            ],
-            # avoid random
-            temperature=0,
-            max_completion_tokens=self.max_completion_tokens,
-            top_p=1,
-            stream=False,
-            stop=None
+        structured_llm = self.llm.with_structured_output(output_schema)
+        return structured_llm.invoke(
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_payload),
+            ]
         )
-        return (completion.choices[0].message.content or "").strip()
-
-    @staticmethod
-    def _parse_semicolon(text: str) -> list[str]:
-        return [part.strip() for part in text.split(";") if part.strip() != ""]
 
     @staticmethod
     def _clean_text(value: str) -> str:
