@@ -23,7 +23,7 @@ jobs as (
     select
         job_posting_raw_id,
         title_normalized,
-        company_name,
+        company,
         source_url
     from {{ ref('fact_job_postings') }}
 )
@@ -33,7 +33,7 @@ select
     s.resume_parse_id,
     s.job_posting_raw_id,
     j.title_normalized,
-    j.company_name,
+    j.company,
     j.source_url,
     s.semantic_score,
     s.scored_at,

@@ -14,7 +14,7 @@ jobs as (
     select
         job_posting_raw_id,
         title_normalized,
-        company_name,
+        company,
         location,
         seniority,
         source_url
@@ -26,7 +26,7 @@ select
     s.resume_parse_id,
     s.job_posting_raw_id,
     j.title_normalized,
-    j.company_name,
+    j.company,
     j.location,
     j.seniority,
     j.source_url,

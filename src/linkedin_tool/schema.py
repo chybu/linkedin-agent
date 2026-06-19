@@ -20,10 +20,10 @@ class WorkplaceType(Enum):
 class ExperienceLevel(Enum):
     """f_E parameter values"""
     INTERN = "1"
-    ENTRY_LEVEL = "2"
-    ASSOCIATE = "3"
-    MID_SENIOR = "4"
-    DIRECTOR = "5"
+    JUNIOR = "2"
+    MID = "3"
+    SENIOR = "4"
+    LEAD = "5"
     EXECUTIVE = "6"
 
 class JobType(Enum):
@@ -93,11 +93,9 @@ class NormalizationSummary:
     )
 
 @dataclass
-class NormalizationResult:
-    result: ScrapeResult = ScrapeResult.SUCCESSFUL
+class NormalizationResult(Result[list[int]]):
     ready_job_posting_raw_ids: list[int] = field(default_factory=list)
     summary: NormalizationSummary = field(default_factory=NormalizationSummary)
-    error: str | None = None
     
 @dataclass
 class FuzzyResult:

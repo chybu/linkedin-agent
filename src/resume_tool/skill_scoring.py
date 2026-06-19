@@ -226,7 +226,7 @@ def score_resume_skills_against_job(
     """
     Score extracted resume skills against extracted job skills.
 
-    This scorer assumes upstream skill extraction is complete. It may return an
+    This scorer assumes upstream skill extraction is complete. It returns an
     existing score for the same resume, job, and fuzzy threshold, but it will not
     extract missing inputs. Missing resume skills or job skills are treated as
     pipeline errors.

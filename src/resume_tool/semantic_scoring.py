@@ -181,6 +181,10 @@ def score_resume_semantic_against_job_evidence(
     resume_bullets: list[str],
     job_posting_raw_id: int,
 ) -> Result[ResumeJobSemanticScoreResult]:
+    """
+    score resume against the job bullet points using embeded model by ollama.
+    If the resume is already scored againt the job with same embeded model, then return the old score.
+    """
     try:
         print_announcement(
             "semantic scoring",

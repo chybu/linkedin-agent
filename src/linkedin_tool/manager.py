@@ -51,13 +51,14 @@ class RequestManager:
     def _create_ingest_jobs_return_content(
         self,
         scrape_run_map: dict[int, ScrapeRunModel],
-        new_job_ct: int
+        new_job_ct: int,
+        existing_job_ids: set[int] | None = None,
     ):
         return {
-            "new_job_ct"  :new_job_ct,
-            "scrape_run_map": scrape_run_map
+            "new_job_ct": new_job_ct,
+            "scrape_run_map": scrape_run_map,
+            "existing_job_ids": list(existing_job_ids),
         }
-    
 
     def ingest_jobs(self, repo: BronzeRepository):
         """
@@ -194,5 +195,9 @@ class RequestManager:
         
         return Result(
             ScrapeResult.SUCCESSFUL,
-            self._create_ingest_jobs_return_content(scrape_run_map, new_job_ct)
+            self._create_ingest_jobs_return_content(
+                scrape_run_map=scrape_run_map,
+                new_job_ct=new_job_ct,
+                existing_job_ids=existing_job_ids,
+            )
         )

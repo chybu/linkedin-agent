@@ -3,7 +3,7 @@ select
     resume_parse_id,
     job_posting_raw_id,
     title_normalized,
-    company_name,
+    company,
     source_url,
     semantic_score,
     scored_at,

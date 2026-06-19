@@ -28,31 +28,5 @@ services:
       postgres:
         condition: service_healthy
 
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:0.9
-    container_name: linkedin_open_webui
-    restart: unless-stopped
-    ports:
-      - "3000:8080"
-    environment:
-      WEBUI_SECRET_KEY: lifeisgoodnevergiveup
-      OPENAI_API_BASE_URL: http://groq-proxy:8000/v1
-      OPENAI_API_KEY: decoy-pass
-    volumes:
-      - open_webui_data:/app/backend/data
-
-  groq-proxy:
-    image: linkedin_groq_proxy:local
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.groq-proxy
-    container_name: linkedin_groq_proxy
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./.secrets.toml:/app/.secrets.toml:ro
-
 volumes:
   postgres_data:
-  open_webui_data:

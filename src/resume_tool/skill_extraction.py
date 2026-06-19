@@ -1,7 +1,9 @@
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
+from time import sleep
 
 from linkedin_tool.schema import Result, ScrapeResult
+from config import NormalizationConfig
 from log import print_announcement, print_message
 from resume_tool.llm import GroqResumeExtractor
 

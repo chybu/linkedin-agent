@@ -28,28 +28,31 @@ class Setting(Enum):
     DATABASE_URL = "postgresql+psycopg://user:password@localhost:5432/jobsdb"
 
 class NormalizationConfig(Enum):
-    BATCH_SIZE = 3
+    BATCH_SIZE = 10
     FUZZY_VAL_THRESH = 0.90
     FUZZY_KEY_THRESH = 0.94
     DOMAINS = ("title", "location", "seniority")
     METHODS = ("map", "fuzzy", "llm")
     LLM = "meta-llama/llama-4-scout-17b-16e-instruct"
-    MAX_TOKEN = 8192
-    LLM_INTERVAL = 5 # seconds
+    # LLM = "llama-3.3-70b-versatile"
+    MAX_TOKEN = 8000 # MAX COMPLETETION TOKEN
+    LLM_INTERVAL = 10 # seconds
     GROQ_API_KEYS = get_api_keys()
 
     EXTRACT_UNEXTRACTED_READY_JOBS = True
 
-class GroqProxyConfig(Enum):
-    BASE_URL = "https://api.groq.com/openai/v1"
-    KEY_COOLDOWN_SECONDS = 60
-    API_KEYS = get_api_keys()
-
 class ResumeConfig(Enum):
-    # EMBED_MODEL = "nomic-embed-text"
     EMBED_MODEL = "mxbai-embed-large"
     # minimum valid score for semantic scoring 
     MIN_MATCH_SCORE = 0.6
     SKILL_FUZZY_MATCH_THRESHOLD = 0.90
     COMPLETE_SCORE_SEMANTIC_WEIGHT = 0.70
     COMPLETE_SCORE_SKILL_WEIGHT = 0.30
+
+class AgentConfig(Enum):
+    MCP_SERVER_NAME = "LinkedIn Job Agent"
+    MCP_SERVER_HOST = "0.0.0.0"
+    MCP_SERVER_PORT = 8001
+    MIN_JOB = 5
+    LINKEDIN_START_INDEX_STEP = 10
+    MAX_EMPTY_VALID_BATCHES = 1

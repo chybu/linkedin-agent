@@ -88,6 +88,7 @@ def _build_normalization_result(
 
     return NormalizationResult(
         result=status,
+        content=ready_ids,
         ready_job_posting_raw_ids=ready_ids,
         summary=NormalizationSummary(
             total_candidates=len(posting_key_map),
@@ -108,7 +109,10 @@ def run_normalization_pipeline(
     rows = repo.fetch_candidate_raw_postings(scrape_run_ids)
     if not rows:
         print_message("Normalization", "finish pipeline")
-        return NormalizationResult()
+        return NormalizationResult(
+            result=ScrapeResult.SUCCESSFUL,
+            content=[]
+        )
 
     posting_key_map = build_posting_key_map(rows)
 

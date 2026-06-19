@@ -1142,6 +1142,7 @@ class GroqLLMNormalizer:
                         user_payload,
                         NormalizedValues,
                     )
+
                     parsed = response.values
                     if len(parsed) != len(inputs) and llm_retry<Setting.MAX_RETRIES.value:
                         sleep(NormalizationConfig.LLM_INTERVAL.value)
@@ -1329,14 +1330,44 @@ Input items JSON array:
         user_payload: str,
         output_schema: type[StructuredOutput],
     ) -> StructuredOutput:
-        print_message("llm", f"normalization model={self.model}")
-        structured_llm = self.llm.with_structured_output(output_schema)
-        return structured_llm.invoke(
+        
+        response = self.llm.invoke(
             [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=user_payload),
             ]
         )
+
+        content = response.content
+        if isinstance(content, list):
+            content = "".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in content
+            )
+
+        content = str(content).strip()
+
+        if content.startswith("```"):
+            content = content.removeprefix("```json").removeprefix("```").strip()
+            content = content.removesuffix("```").strip()
+
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            json_start = content.find("{")
+            json_end = content.rfind("}")
+
+            if json_start == -1 or json_end == -1 or json_end <= json_start:
+                raise ValueError(f"LLM returned invalid JSON: {content}")
+
+            json_content = content[json_start : json_end + 1]
+
+            try:
+                parsed = json.loads(json_content)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"LLM returned invalid JSON: {CleanedDescriptionValues}") from e
+
+        return output_schema.model_validate(parsed)
 
     @staticmethod
     def _clean_text(value: str) -> str:
