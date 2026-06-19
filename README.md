@@ -109,64 +109,39 @@ The final result is not just a rank or a percentage. The system can explain why 
 
 This is the core product thesis: the chat experience is convenient, but the durable asset is the evidence graph behind the recommendation.
 
+## MCP Resume Grading Flow
+
+MCP is how an agent talks to the evidence engine. A `chat_id` identifies one user conversation, and each chat has one active resume grading config with three required setup fields:
+
+- `resume_parse_id`: the parsed resume stored from a local PDF.
+- `job_title`: the normalized target job title.
+- `seniority`: the target seniority level.
+
+The workflow is built for a guided chat experience:
+
+```text
+initialize_resume_grading_chat
+        ↓
+set_target_resume / set_target_job_title / set_target_seniority
+        ↓
+start_resume_grading
+        ↓
+get_resume_grading_status
+        ↓
+list_resume_grading_results
+        ↓
+explain_resume_job_match
+```
+
+Once the setup is complete, `start_resume_grading` launches a background run. That run scrapes LinkedIn jobs, normalizes new postings, runs dbt models, extracts skills, scores the resume, and saves the comparisons. The chat layer can then list ranked matches or explain a specific job through matched requirements, missing requirements, matched skills, and missing skills.
+
 ## Medallion Data Model
 
-The project uses a medallion-style data model with three schemas: `bronze`, `silver`, and `gold`. Each layer has a different job, so the system can separate raw evidence, cleaned entities, and investor-ready product views.
+The warehouse uses a medallion model so the system can separate raw evidence from product-ready insight:
 
-### Bronze: Raw and Operational Data
-
-The `bronze` layer keeps data close to how it arrived from LinkedIn or the resume parser. It includes raw job search cards, raw job postings, scrape run metadata, resume parses, and process tracking tables.
-
-This layer also stores control and mapping tables used by the normalization pipeline:
-
-- `bronze.raw_job_search_cards` stores job cards from LinkedIn search results.
-- `bronze.raw_job_postings` stores the full raw job posting details.
-- `bronze.run_scrapes` tracks each scrape request and whether it succeeded.
-- `bronze.raw_resume_parses` stores parsed resume text and extracted evidence.
-- `bronze.map_normalized_job_titles`, `bronze.map_normalized_locations`, and `bronze.map_normalized_seniority_levels` store normalized values produced by fuzzy matching or LLM cleanup.
-- `bronze.ctl_ready_job_postings` marks job postings that are ready to move into dbt processing.
-
-In short, bronze is the source-of-truth layer. It preserves the original inputs and records how far each item has moved through the pipeline. This is where trust begins.
-
-### Silver: Cleaned and Modeled Data
-
-The `silver` layer turns raw data into reusable analytical tables. The main dbt staging model, `stg_job_postings`, joins raw postings with the normalization maps from bronze. From there, dbt builds dimensions and facts such as:
-
-- `silver.dim_titles`
-- `silver.dim_companies`
-- `silver.dim_locations`
-- `silver.fact_job_postings`
-
-The resume scoring pipeline also writes silver tables for skills and match results:
-
-- `silver.dim_skills`
-- `silver.bridge_job_posting_skills`
-- `silver.bridge_resume_parse_skills`
-- `silver.fact_resume_job_semantic_scores`
-- `silver.fact_resume_job_skill_scores`
-- `silver.fact_resume_job_complete_scores`
-
-This is the layer used for reliable joins, scoring, filtering, and downstream analysis. It turns scraped pages and parsed resumes into a structured matching substrate.
-
-### Gold: Analysis-Ready Views
-
-The `gold` layer is built for direct reporting and product-facing summaries. These models are views on top of silver tables, shaped around commercial questions the product needs to answer:
-
-- Which companies are hiring the most?
-- Which locations have the most demand?
-- Which skills appear most often by role or industry?
-- How well does a resume match a job?
-- Which job requirements are satisfied or missing?
-
-Examples include:
-
-- `gold.company_hiring_demand`
-- `gold.location_demand`
-- `gold.top_skills`
-- `gold.top_skills_by_industry`
-- `gold.resume_match_summary`
-- `gold.resume_requirement_matches`
-- `gold.resume_missing_requirements`
+- **Bronze** preserves the original inputs: raw LinkedIn cards, raw job postings, scrape runs, resume parses, normalization maps, and readiness controls.
+- **Silver** turns those inputs into reusable entities and facts: titles, companies, locations, job postings, skills, semantic scores, skill scores, and complete resume/job scores.
+- **Gold** exposes the product-facing views: hiring demand, location demand, top skills, resume match summaries, matched requirements, and missing requirements.
 
 The overall flow is:
 
@@ -283,84 +258,6 @@ The MCP server is defined in `src/agent_server/server.py`:
 
 Resume grading setup changes are handled by the config tool in `src/agent_server/tools/config.py`.
 
-### MCP Resume Grading Flow
-
-The MCP server is designed around a chat workflow. A `chat_id` identifies one user conversation, and each chat has one active resume grading config. The active config stores the three setup fields needed before grading can start:
-
-- `resume_parse_id`: the parsed resume stored from a local PDF.
-- `job_title`: the normalized target job title.
-- `seniority`: the target seniority level.
-
-Start by calling `initialize_resume_grading_chat`. If the user already has a `chat_id`, pass it in to continue the same workflow. If not, call it with `chat_id=None` to create a new chat. The response returns the `chat_id`, which fields are ready, which fields are missing, and whether the chat is ready to grade.
-
-If setup is incomplete, fill the missing fields with these tools:
-
-- `set_target_resume` parses and stores the user's resume PDF.
-- `set_target_job_title` normalizes the target job title before saving it.
-- `set_target_seniority` saves one of the supported seniority values: `intern`, `junior`, `mid`, `senior`, `lead`, `executive`, or `not_applicable`.
-
-Once the response says `ready_to_grade=true`, call `start_resume_grading` with the same `chat_id`. This starts a background grading run and returns a `grading_run_id`. The run will scrape LinkedIn jobs, normalize new postings, run dbt models, extract skills, score the resume, and save job comparisons.
-
-Use `get_resume_grading_status` with the `chat_id` to check progress. The status response includes the current phase, processed job count, matched job count, new comparison count, and any stop or error reason. If the user wants to stop the current run, call `cancel_resume_grading`; cancellation happens at the next safe checkpoint.
-
-After results are available, use:
-
-- `list_resume_grading_results` to show ranked job matches for the active config.
-- `explain_resume_job_match` with a `chat_comparison_id` from the results list to show matched requirements, missing requirements, matched skills, and missing skills.
-
-If the user wants to change their resume, target job title, or seniority after a config already exists, use `start_new_resume_grading_config`. This creates a new active config for the same `chat_id` and can copy fields from the previous config. For example, if the user wants to keep the same resume but target a different role, set `copy_resume=true`, `copy_job_title=false`, and `copy_seniority` depending on whether the seniority should stay the same.
-
-The typical flow looks like this:
-
-```text
-initialize_resume_grading_chat
-        ↓
-set_target_resume / set_target_job_title / set_target_seniority
-        ↓
-start_resume_grading
-        ↓
-get_resume_grading_status
-        ↓
-list_resume_grading_results
-        ↓
-explain_resume_job_match
-```
-
-## Useful Commands
-
-Run a sample LinkedIn scrape:
-
-```bash
-python test/test_scripts/scrape_new_job.py
-```
-
-Normalize successful scrape runs and process them with dbt:
-
-```bash
-python test/test_scripts/run_normalization_and_dbt.py
-```
-
-Stop local services:
-
-```bash
-bash test/test_scripts/shutdown.sh
-```
-
-## Database Access
-
-Default local database connection:
-
-- host: `localhost`
-- port: `5432`
-- database: `jobsdb`
-- user: `user`
-- password: `password`
-
-Adminer runs at:
-
-```text
-http://localhost:8080
-```
 
 ## Project Structure
 
